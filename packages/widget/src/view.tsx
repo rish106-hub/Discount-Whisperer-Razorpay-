@@ -39,11 +39,18 @@ export function View({ ladder, result, onNudge, onAdd }: ViewProps) {
     <div class="dw" data-testid="dw-root" role="region" aria-label="Offers for your cart">
       {applicable.length > 0 && (
         <ul class="list" data-testid="dw-applicable" aria-label="Offers applied now">
-          {applicable.map(({ o, saving }) => (
+          {applicable.map(({ o, saving }, i) => (
             <li key={o.id}>
-              <span class="ok" aria-hidden="true">
-                ✓
-              </span>{" "}
+              {/* The server applies one offer: the best (first) is applied, the rest are alternatives. */}
+              {i === 0 ? (
+                <>
+                  <span class="ok" aria-hidden="true">
+                    ✓
+                  </span>{" "}
+                </>
+              ) : (
+                "or: "
+              )}
               {describe(o)}
               {o.method ? ` with ${o.method}` : ""}:{" "}
               <strong>
