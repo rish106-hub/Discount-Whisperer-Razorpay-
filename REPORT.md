@@ -1,94 +1,35 @@
-# T0 report: contracts and scaffold
+# T4 report: razorpay-payments
 
-Branch `dw-t0-contracts`. Status: **done, waiting for human checkpoint 1.**
+Branch `dw-t4-razorpay-b895f4`. Status: **done, 1 fix iteration (tsc config only).**
 
-## Acceptance
-| Check | Result |
-|---|---|
-| `pnpm install` | pass (pnpm 11.8.0; `allowBuilds: esbuild` needed, pnpm 11 blocks build scripts) |
-| `pnpm -r typecheck` | pass (contracts + api) |
-| golden.json parses, >= 14 cases | pass: 3 sets, 16 lookup + 16 validate = 32 cases (`pnpm --filter @dw/contracts test`) |
-| cart 180000 / method null matches spec | pass: conditional O3 9000, top unlock O1 gap 19900, filler gamcha |
-| index.ts mounts all 8 route modules | pass |
-| Independent recompute (fresh Opus agent, by hand) | 26/26 original cases agree; 6 more cases added from its coverage gaps |
-| Schema ↔ type drift | `src/schemas/_assert.ts` fails typecheck if any zod output differs from its TS type (verified by injecting a drift) |
+## Diff summary
+- `apps/api/src/razorpay/signature.ts`: HMAC-SHA256 hex via crypto.subtle; constant-time compare; malformed signature returns false.
+- `apps/api/src/razorpay/client.ts`: fetch Orders client. Basic auth, 8 s timeout, one retry (jittered 200-400 ms) on 5xx / network / timeout, never on 4xx. Refuses unless key id starts `rzp_test_`. Errors carry no upstream body or secrets.
+- `apps/api/src/razorpay/modes.ts`: `planOrder`. Offer with `razorpayOfferId` -> `razorpay_offer` (amount = cart, `offers:[id]`); else `server_discount` (amount = chargePaise).
+- `apps/api/src/routes/payments.ts`: `POST /order`, `POST /verify`.
+- `apps/api/test/payments/**`: own in-memory repo, tests, stand-in for offer-core, local vitest config, `scripts/try-order.mjs`.
 
-## File tree
-```
-package.json  pnpm-workspace.yaml  tsconfig.base.json  .gitignore  .editorconfig  CLAUDE.md  README.md
-packages/contracts/
-  src/index.ts            zod-free entry: types + constants + db names
-  src/constants.ts        ladderKey, limits, patterns, EVENT_TYPES
-  src/db.ts               TABLES, RPC, *_COLUMNS, APP_CONFIG_KEYS
-  src/types/              offer filler ladder lookup validate events payments api repo golden
-  src/schemas/            zod mirrors + _assert.ts (exported at @dw/contracts/schemas)
-  fixtures/golden.json    sets m1 (golden merchant), e1, e2 + 32 cases
-  scripts/check-golden.ts structural check
-apps/api/
-  src/index.ts            createApp(deps) + default {fetch, scheduled}   (frozen)
-  src/env.ts              Env, Deps, AppEnv                              (frozen)
-  src/routes/*.ts         8 stubs: xRoutes(deps) -> Hono<AppEnv>
-  src/log.ts, reconciler.ts, supabaseRepo.ts   T2-owned stubs
-```
+## Behaviour decisions
+- Order: body parsed as JSON regardless of Content-Type; zod 400 `validation_failed`; `validateSelection` (re-reads `getAllOffers`, never KV) -> 409 `invalid_offer` (detail = reason); **`chargePaise` < 100 -> 409 `amount_too_low`** (checked on the post-discount charge in both modes); Razorpay failure -> 502 `upstream_error` (no detail); payments row inserted after the order exists; response never has the secret.
+- Verify: unknown order -> 404 `not_found`. Bad/malformed signature -> 200 `{verified:false}`, row `failed`. Good -> `verified` + one `payment_verified` event (event failure is logged, does not fail verify).
+- **A verified payment is never downgraded** by a later bad signature (otherwise anyone could flip a paid order to failed). `failed -> verified` is allowed.
+- Duplicate verify with same payment id: `{verified:true}`, no second event. Different payment id on an already verified order: `{verified:false}`, no state change.
 
-## Mount table
-| Prefix | Module | Owner |
-|---|---|---|
-| `/` (`/healthz`) | health | T2 |
-| `/v1/ladder` | ladder | T2 |
-| `/v1/admin` | admin | T2 |
-| `/internal` | internal | T2 |
-| `/v1/checkout` | checkout | T2 |
-| `/v1/events` | events | T2 |
-| `/v1/metrics` | metrics | T2 |
-| `/v1/payments` | payments | T4 |
+## Tests
+`cd apps/api && npx vitest run -c test/payments/vitest.config.ts`: **29 passed / 0 failed** (3 files: signature 5, client 6, payments routes 18). `npx tsc -p tsconfig.json` clean. Grep for `rzp_` key-like strings, `eyJ`, `service_role` in src/test: none.
 
-## Golden cases (m1 = Shantipur Tant House; now = 2026-06-01 unless noted)
-| # | Case | Expected |
-|---|---|---|
-| 1 | m1 1,800 null | step 1; cond O3 9000; unlock O1 (gap 19900), O2 (69900); filler gamcha |
-| 2 | m1 2,600 HDFC_CC | step 3; O1 26000, O2 25000; nothing to unlock |
-| 3 | m1 1,998.99 null | cond O3 9994; unlock O1 gap 1, O2 gap 50001; gamcha |
-| 4 | m1 1,999 null | O1 19990; cond O3 9995; unlock O2 gap 50000; potli bag |
-| 5 | m1 1,999.01 null | O1 19990; cond O3 9995; O2 gap 49999; potli bag |
-| 6 | m1 1,999 UPI | O1 19990, O3 9995; O2 dropped |
-| 7 | m1 2,600 ICICI_CC | O1 26000 only |
-| 8 | m1 2,498.99 null | O1 24989; cond O3 12494; O2 gap 1; gamcha |
-| 9 | m1 5,000 HDFC_CC | O1 capped 30000, O2 25000 |
-| 10 | expired (now = endsAt) | all empty |
-| 11 | not started (startsAt - 1) | all empty |
-| 12 | m1 0 HDFC_CC | unlock O2 (score 0.10004) above O1 (0.1); no filler fits -> null |
-| 13 | e1 0 null | below every min; C, B (merchant) before A (bank); filler price tie -> sku "bag" |
-| 14 | e1 700 null | flat 80000 on 70000 cart -> saving 70000; B before A on full tie |
-| 15 | m1 2,499 HDFC_CC at startsAt | live at start; O2 25000 before O1 24990 |
-| 16 | e2 0 null | four 0.1 scores, gap asc decides, top-3 cut |
-| V | 16 validate cases | spec O2 -> 25000/235000; O1 below_min; cashback charge unchanged; method_mismatch (null and wrong); unknown; expired; not_started; cap; inactive; charge 0; offerId null; check order x2; endsAt-1 live; cashback cap |
-
-## Decisions to approve at checkpoint 1
-1. **Live window is `startsAt <= now < endsAt`** (end exclusive).
-2. **`step` = number of live offers with min <= cart, whatever their method.** It can be larger than the number of offers shown (case 7: step 3, 1 applicable).
-3. **`applicable` and `conditional` are sorted by saving desc, then id.** Cashback is ranked with instant discounts.
-4. **`unlockable[].method` was added** (not in the original output) so the widget can say "if you pay with X" without a second lookup.
-5. **An unlockable's saving is computed at exactly minOrderPaise**, as specified. After adding a filler the real saving on a pct offer can be a little higher than shown. This is safe for money because it under-promises.
-6. **`validateSelection` accepts `offerId: null`** (valid, saving 0), so `/v1/payments/order` with no offer uses the same path. `/v1/checkout/validate` still requires an offerId.
-7. **Validate check order:** unknown_offer, inactive, not_started, expired, below_min, method_mismatch.
-8. **chargePaise can be 0** (flat >= cart). The payments route must return `409 amount_too_low` below `RAZORPAY_MIN_AMOUNT_PAISE` (100).
-9. **Flat offers must have `maxPaise: null`**, and percent values must be 1..100 (zod rejects otherwise).
-10. **Ladder `version` hashes `{v, merchantId, disabled, offers, fillers}`.** `builtAt` is not hashed, so the same content gives the same ETag. The kill switch changes the version.
-11. **Kill switch source:** `buildLadder({..., disabled})` defaults to false, and nothing in the DB stores it yet. For the drill, T7 writes `disabled: true` into KV directly. Add a column later if needed.
-12. **Ladder vs clock skew:** the ladder drops offers that ended before `builtAt`. If a browser clock runs behind `builtAt`, it shows fewer offers, never wrong money. The property test must use `nowMs >= buildNowMs`.
-13. **Outbox protocol:** `Repo.pendingOutboxMaxId` plus `markOutboxProcessed(m, upToId)`, so an edit that lands during a rebuild is never marked processed by mistake. I added two Repo methods, `pendingOutboxMaxId` and `getPaymentByOrderId` (needed for idempotent verify).
-14. **payments table gets `cart_paise` and `mode` columns**, for the amount_match drill and for "log mode in payments".
-15. **`widget_seen_rate` is always null.** No page_view event type exists. Add `page_view` now if you want that ratio.
-16. **Events are sent as text/plain JSON** (sendBeacon avoids a CORS preflight), so T2 must parse the body whatever its Content-Type.
-17. **merchantId is at most 20 lower-case chars**, so the receipt `dw_{id}_{ms}` fits 40. Cart is at most 2,000,000,000 paise (Postgres int).
-18. **Dependency injection:** routes are `xRoutes(deps: Deps)` and `createApp(deps)` is exported. Tests inject an in-memory Repo and a fixed clock without the Workers pool.
-19. **Versions:** typescript 5.9.3 (7.0 is the new native compiler, skipped for tooling compatibility), zod 4.6.7, hono 4.13.18, @cloudflare/workers-types 4.20260702.1 (T2 may move to `wrangler types`), tsx 4.23.15.
+## Real test-mode order
+**Not run**: `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` not set in this shell. Run once with keys exported:
+`node apps/api/test/payments/scripts/try-order.mjs` (refuses non `rzp_test_`; prints id and amount only).
 
 ## Open risks
-- T0 stubs sit in T2-owned files. T2 must keep the exports. If T2 deletes a stub, `index.ts` breaks.
-- T4 needs deps in `apps/api/package.json`, which T2 owns. Probably none are needed: fetch and crypto.subtle are built in.
-- TypeScript 5.9 vs 7: if a later tool needs TS 7, upgrade at T7.
+- **Stand-in for offer-core** (T1 not on this branch): `test/payments/offer-core-standin.ts` + `offer-core-shim.d.ts` + the alias in `test/payments/vitest.config.ts`. T7: delete all three, add the dependency, rerun against the real `validateSelection`. `src/routes/payments.ts` imports `@dw/offer-core`; it does not typecheck without the shim until T1 merges.
+- Retry on timeout/network error can leave an orphan Razorpay order if the first attempt actually succeeded. Harmless (never paid), but no payments row.
+- Two concurrent verifies of the same payment could both insert a `payment_verified` event (no atomic compare-and-set in the Repo contract). `payments.razorpay_payment_id` is unique so the row stays consistent; the metric could double count in a race.
+- `razorpay_offer` mode: server trusts Razorpay to apply the discount at Checkout; `expectedSavingPaise` and `cartPaise` are recorded for the amount_match drill, but verify does not fetch the payment amount from Razorpay (out of spec).
+- Razorpay `offers` param confirmed from the plan; Context7 Razorpay Node docs did not show the `offers` field, so its behaviour is not re-verified against live docs. Try-order does not exercise `offers`.
 
 ## Requests
-None.
+1. T2 (`apps/api/package.json`): add devDependency `vitest` (I used `^3.2.7`) and a script e.g. `"test": "vitest run"`. I added vitest locally only (uncommitted changes to `apps/api/package.json` and `pnpm-lock.yaml` are NOT in my commit).
+2. T2: `apps/api/vitest.config.ts` should `include` / exclude `test/payments/**` as needed; T4 tests use their own config at `test/payments/vitest.config.ts` until the stand-in is removed.
+3. T7: add `"@dw/offer-core": "workspace:*"` to `apps/api/package.json`; remove the stand-in (see Open risks).
