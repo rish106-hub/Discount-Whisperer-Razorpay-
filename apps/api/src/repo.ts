@@ -15,6 +15,9 @@ export interface MemoryRepo extends Repo {
   };
 }
 
+/** CAS rule: verified is terminal; failed only from created; verified from created or failed. */
+const canMove = (from: string, to: string) => from === "created" || (from === "failed" && to === "verified");
+
 export function createMemoryRepo(seed?: { offers?: Offer[]; fillers?: Record<string, Filler[]>; now?: () => number }): MemoryRepo {
   const now = seed?.now ?? (() => Date.now());
   const state: MemoryRepo["state"] = {
@@ -81,7 +84,7 @@ export function createMemoryRepo(seed?: { offers?: Offer[]; fillers?: Record<str
     },
     async updatePaymentByOrderId(id, u: PaymentUpdate) {
       const r = state.payments.find((p) => p.razorpayOrderId === id);
-      if (!r) return null;
+      if (!r || !canMove(r.status, u.status)) return null; // compare-and-set
       r.status = u.status;
       if (u.razorpayPaymentId !== undefined) r.razorpayPaymentId = u.razorpayPaymentId;
       r.updatedAt = now();

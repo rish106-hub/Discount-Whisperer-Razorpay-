@@ -14,7 +14,8 @@ export interface OrderPlan {
  * `offer` must be the offer that `validation` was computed for (null when no offer selected).
  */
 export function planOrder(offer: Offer | null, validation: ValidateResult, cartPaise: number): OrderPlan {
-  if (offer && validation.valid && offer.razorpayOfferId) {
+  // Cashback is paid after capture; sending offers=[id] could let Razorpay deduct it at checkout.
+  if (offer && validation.valid && offer.razorpayOfferId && offer.kind !== "cashback_pct") {
     return { mode: "razorpay_offer", amountPaise: cartPaise, offers: [offer.razorpayOfferId] };
   }
   return { mode: "server_discount", amountPaise: validation.chargePaise };
