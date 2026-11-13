@@ -32,6 +32,7 @@ export class DwOffers extends HTMLElement {
   private method: string | null = null;
   private visible = false;
   private loading = false;
+  private last: LookupResult | null = null;
   private seenSent = false;
   private connected = false;
   private readonly sessionId = newSessionId();
@@ -148,6 +149,11 @@ export class DwOffers extends HTMLElement {
     this.paint();
   }
 
+  /** Read-only: what the widget is showing right now (null when it renders nothing). The demo uses it to pick the offer to pay with. */
+  get lookupResult(): LookupResult | null {
+    return this.last;
+  }
+
   private fail(msg: string, e?: unknown): void {
     debug(msg, e);
     this.ladder = null;
@@ -155,6 +161,7 @@ export class DwOffers extends HTMLElement {
   }
 
   private clear(): void {
+    this.last = null;
     try {
       if (this.mount) render(null, this.mount);
     } catch {
@@ -169,6 +176,7 @@ export class DwOffers extends HTMLElement {
     if (!this.mount || !ladder || ladder.disabled || cart === null) return this.clear();
     try {
       const result: LookupResult = lookup(ladder, { cartPaise: cart, method: this.method, nowMs: Date.now() });
+      this.last = result;
       const vnode = h(View, {
         ladder,
         result,
@@ -195,14 +203,9 @@ export class DwOffers extends HTMLElement {
   }
 
   private add(f: Filler): void {
-    this.track("addon", this.ladder ? (this.currentTopOffer() ?? null) : null);
+    this.track("addon", this.last?.unlockable[0]?.offerId ?? null);
     this.dispatchEvent(
       new CustomEvent("dw:add", { detail: { sku: f.sku, pricePaise: f.pricePaise }, bubbles: true, composed: true }),
     );
-  }
-
-  private currentTopOffer(): string | undefined {
-    if (!this.ladder || this.cart === null) return undefined;
-    return lookup(this.ladder, { cartPaise: this.cart, method: this.method, nowMs: Date.now() }).unlockable[0]?.offerId;
   }
 }

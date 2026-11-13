@@ -1,94 +1,42 @@
-# T0 report: contracts and scaffold
+# T5 report: widget and demo
 
-Branch `dw-t0-contracts`. Status: **done, waiting for human checkpoint 1.**
+Branch `dw-t5-widget-44cb56`. Status: **done; real build + size check pending T1 merge.**
 
 ## Acceptance
 | Check | Result |
 |---|---|
-| `pnpm install` | pass (pnpm 11.8.0; `allowBuilds: esbuild` needed, pnpm 11 blocks build scripts) |
-| `pnpm -r typecheck` | pass (contracts + api) |
-| golden.json parses, >= 14 cases | pass: 3 sets, 16 lookup + 16 validate = 32 cases (`pnpm --filter @dw/contracts test`) |
-| cart 180000 / method null matches spec | pass: conditional O3 9000, top unlock O1 gap 19900, filler gamcha |
-| index.ts mounts all 8 route modules | pass |
-| Independent recompute (fresh Opus agent, by hand) | 26/26 original cases agree; 6 more cases added from its coverage gaps |
-| Schema ↔ type drift | `src/schemas/_assert.ts` fails typecheck if any zod output differs from its TS type (verified by injecting a drift) |
+| `pnpm --filter @dw/widget test` | pass: 55 tests, 3 files (format, golden stand-in check, element) |
+| `pnpm --filter @dw/widget typecheck` | pass |
+| Build + `size-check` | **with test stand-in** (`DW_STANDIN=1`): 26.9 KB raw, **9.16 KB gzip** (budget 15 KB). Real offer-core is bigger than the stand-in (buildLadder/hash are tree-shaken, `lookup` + `savingPaise` stay). Re-run after T1 merge: `pnpm --filter @dw/widget build:check` |
+| Demo `?api=mock` at Rs 1,800 | shows "Add a gamcha (Rs 199)" nudge + UPI cashback conditional (browser-verified) |
+| No zod / supabase in widget | pass: test greps `src/`; root `@dw/contracts` imported with `import type` only |
 
-## File tree
-```
-package.json  pnpm-workspace.yaml  tsconfig.base.json  .gitignore  .editorconfig  CLAUDE.md  README.md
-packages/contracts/
-  src/index.ts            zod-free entry: types + constants + db names
-  src/constants.ts        ladderKey, limits, patterns, EVENT_TYPES
-  src/db.ts               TABLES, RPC, *_COLUMNS, APP_CONFIG_KEYS
-  src/types/              offer filler ladder lookup validate events payments api repo golden
-  src/schemas/            zod mirrors + _assert.ts (exported at @dw/contracts/schemas)
-  fixtures/golden.json    sets m1 (golden merchant), e1, e2 + 32 cases
-  scripts/check-golden.ts structural check
-apps/api/
-  src/index.ts            createApp(deps) + default {fetch, scheduled}   (frozen)
-  src/env.ts              Env, Deps, AppEnv                              (frozen)
-  src/routes/*.ts         8 stubs: xRoutes(deps) -> Hono<AppEnv>
-  src/log.ts, reconciler.ts, supabaseRepo.ts   T2-owned stubs
-```
+## Files
+- `packages/widget/src/`: `element.ts` (custom element, lifecycle), `view.tsx` (Preact view + CSS), `client.ts` (fetch, 800 ms timeout), `events.ts` (sendBeacon text/plain, fetch keepalive fallback), `format.ts` (en-IN Rs), `index.ts`.
+- `packages/widget/{vite.config.ts,vitest.config.ts,scripts/size-check.mjs,test/**}`.
+- `apps/demo/public/{index.html,demo.js,styles.css,mock-ladder.json}`, `apps/demo/screenshots/*.jpg`.
 
-## Mount table
-| Prefix | Module | Owner |
-|---|---|---|
-| `/` (`/healthz`) | health | T2 |
-| `/v1/ladder` | ladder | T2 |
-| `/v1/admin` | admin | T2 |
-| `/internal` | internal | T2 |
-| `/v1/checkout` | checkout | T2 |
-| `/v1/events` | events | T2 |
-| `/v1/metrics` | metrics | T2 |
-| `/v1/payments` | payments | T4 |
-
-## Golden cases (m1 = Shantipur Tant House; now = 2026-06-01 unless noted)
-| # | Case | Expected |
-|---|---|---|
-| 1 | m1 1,800 null | step 1; cond O3 9000; unlock O1 (gap 19900), O2 (69900); filler gamcha |
-| 2 | m1 2,600 HDFC_CC | step 3; O1 26000, O2 25000; nothing to unlock |
-| 3 | m1 1,998.99 null | cond O3 9994; unlock O1 gap 1, O2 gap 50001; gamcha |
-| 4 | m1 1,999 null | O1 19990; cond O3 9995; unlock O2 gap 50000; potli bag |
-| 5 | m1 1,999.01 null | O1 19990; cond O3 9995; O2 gap 49999; potli bag |
-| 6 | m1 1,999 UPI | O1 19990, O3 9995; O2 dropped |
-| 7 | m1 2,600 ICICI_CC | O1 26000 only |
-| 8 | m1 2,498.99 null | O1 24989; cond O3 12494; O2 gap 1; gamcha |
-| 9 | m1 5,000 HDFC_CC | O1 capped 30000, O2 25000 |
-| 10 | expired (now = endsAt) | all empty |
-| 11 | not started (startsAt - 1) | all empty |
-| 12 | m1 0 HDFC_CC | unlock O2 (score 0.10004) above O1 (0.1); no filler fits -> null |
-| 13 | e1 0 null | below every min; C, B (merchant) before A (bank); filler price tie -> sku "bag" |
-| 14 | e1 700 null | flat 80000 on 70000 cart -> saving 70000; B before A on full tie |
-| 15 | m1 2,499 HDFC_CC at startsAt | live at start; O2 25000 before O1 24990 |
-| 16 | e2 0 null | four 0.1 scores, gap asc decides, top-3 cut |
-| V | 16 validate cases | spec O2 -> 25000/235000; O1 below_min; cashback charge unchanged; method_mismatch (null and wrong); unknown; expired; not_started; cap; inactive; charge 0; offerId null; check order x2; endsAt-1 live; cashback cap |
-
-## Decisions to approve at checkpoint 1
-1. **Live window is `startsAt <= now < endsAt`** (end exclusive).
-2. **`step` = number of live offers with min <= cart, whatever their method.** It can be larger than the number of offers shown (case 7: step 3, 1 applicable).
-3. **`applicable` and `conditional` are sorted by saving desc, then id.** Cashback is ranked with instant discounts.
-4. **`unlockable[].method` was added** (not in the original output) so the widget can say "if you pay with X" without a second lookup.
-5. **An unlockable's saving is computed at exactly minOrderPaise**, as specified. After adding a filler the real saving on a pct offer can be a little higher than shown. This is safe for money because it under-promises.
-6. **`validateSelection` accepts `offerId: null`** (valid, saving 0), so `/v1/payments/order` with no offer uses the same path. `/v1/checkout/validate` still requires an offerId.
-7. **Validate check order:** unknown_offer, inactive, not_started, expired, below_min, method_mismatch.
-8. **chargePaise can be 0** (flat >= cart). The payments route must return `409 amount_too_low` below `RAZORPAY_MIN_AMOUNT_PAISE` (100).
-9. **Flat offers must have `maxPaise: null`**, and percent values must be 1..100 (zod rejects otherwise).
-10. **Ladder `version` hashes `{v, merchantId, disabled, offers, fillers}`.** `builtAt` is not hashed, so the same content gives the same ETag. The kill switch changes the version.
-11. **Kill switch source:** `buildLadder({..., disabled})` defaults to false, and nothing in the DB stores it yet. For the drill, T7 writes `disabled: true` into KV directly. Add a column later if needed.
-12. **Ladder vs clock skew:** the ladder drops offers that ended before `builtAt`. If a browser clock runs behind `builtAt`, it shows fewer offers, never wrong money. The property test must use `nowMs >= buildNowMs`.
-13. **Outbox protocol:** `Repo.pendingOutboxMaxId` plus `markOutboxProcessed(m, upToId)`, so an edit that lands during a rebuild is never marked processed by mistake. I added two Repo methods, `pendingOutboxMaxId` and `getPaymentByOrderId` (needed for idempotent verify).
-14. **payments table gets `cart_paise` and `mode` columns**, for the amount_match drill and for "log mode in payments".
-15. **`widget_seen_rate` is always null.** No page_view event type exists. Add `page_view` now if you want that ratio.
-16. **Events are sent as text/plain JSON** (sendBeacon avoids a CORS preflight), so T2 must parse the body whatever its Content-Type.
-17. **merchantId is at most 20 lower-case chars**, so the receipt `dw_{id}_{ms}` fits 40. Cart is at most 2,000,000,000 paise (Postgres int).
-18. **Dependency injection:** routes are `xRoutes(deps: Deps)` and `createApp(deps)` is exported. Tests inject an in-memory Repo and a fixed clock without the Workers pool.
-19. **Versions:** typescript 5.9.3 (7.0 is the new native compiler, skipped for tooling compatibility), zod 4.6.7, hono 4.13.18, @cloudflare/workers-types 4.20260702.1 (T2 may move to `wrangler types`), tsx 4.23.15.
+## Behaviour notes
+- Fetch only when visible (IntersectionObserver), once per (api, merchant) per page (module cache). Failure = render nothing + one `console.debug`.
+- Disconnect: removes `dw:cart` listener, disconnects IO, aborts fetch, unmounts Preact. Tests cover each.
+- `dw:cart` `method` omitted = keep last method; `null` = clear. Junk cart values ignored.
+- `seen` once per element when something rendered; `nudge_click` on nudge click; `addon` on Add (Add does not also fire nudge_click). `dw:add` bubbles + composed.
+- Added read-only `element.lookupResult` so the demo's Pay uses the same offer the widget shows (`applicable[0]`).
+- Money text: `Rs 1,998.99`, whole rupees drop `.00`. Used "Rs" (not the rupee glyph) to match acceptance string.
+- Mock mode: demo.js patches `fetch`/`sendBeacon` before the widget loads; widget code unchanged. Pay in mock mode skips Razorpay.
+- Context7 had no Razorpay web Checkout docs; Standard Checkout options (`key, order_id, amount, currency, handler, modal.ondismiss, rzp.on("payment.failed")`) from prior knowledge. Verify on the first real test payment.
 
 ## Open risks
-- T0 stubs sit in T2-owned files. T2 must keep the exports. If T2 deletes a stub, `index.ts` breaks.
-- T4 needs deps in `apps/api/package.json`, which T2 owns. Probably none are needed: fetch and crypto.subtle are built in.
-- TypeScript 5.9 vs 7: if a later tool needs TS 7, upgrade at T7.
+- **Stand-in only**: `packages/widget/test/offer-core-standin.ts` is test-only (matches all 16 golden m1 lookup cases). `vitest.config.ts` aliases to it only while `packages/offer-core/src/index.ts` is absent; `tsconfig` `paths` falls back likewise. After T1 merge the real package is used automatically.
+- Two stacked "applicable" offers (case 9: O1 + O2) are both shown as applied, but Pay sends one offerId (highest saving). Shopper may expect both. Product decision for the human.
+- `mock-ladder.json` `version` hand-computed FNV-1a/canonical JSON per contract doc; may differ from T1 `buildLadder`. Widget ignores `version`. Regenerate with real `buildLadder` after T1.
+- Clock skew: widget uses `Date.now()`; per checkpoint decision 12 a slow clock shows fewer offers, never wrong money.
+- Real Razorpay Checkout flow and `/v1/payments/*` not exercised here (needs T2/T4 + keys).
 
 ## Requests
-None.
+1. **T7**: copy `packages/widget/dist/dw-offers.js` to `apps/demo/public/dw-offers.js` before serving assets (`pnpm --filter @dw/widget build:demo` does build + size-check + copy; file is gitignored). `index.html` loads `./dw-offers.js`.
+2. **T7/T0**: `pnpm install` modifies root `pnpm-lock.yaml` (new widget deps). I did not commit it; regenerate at merge. `pnpm install` also needs `packages/offer-core/package.json` to exist for `workspace:*` (I used an untracked local stub; arrives with T1).
+3. Pinned: preact 10.29.8, vite 8.3.8, vitest 5.1.0, happy-dom 21.0.4.
+
+## Screenshots
+`apps/demo/screenshots/`: `1-cart-1800.jpg` (desktop), `3-320px-1800-nudge.jpg`, `2-320px-hdfc-5400-applicable.jpg`. No horizontal scroll at 320 px (scrollWidth 320).

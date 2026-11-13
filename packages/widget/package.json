@@ -9,7 +9,8 @@
     "test": "vitest run",
     "build": "vite build",
     "size-check": "node scripts/size-check.mjs",
-    "build:check": "vite build && node scripts/size-check.mjs"
+    "build:check": "vite build && node scripts/size-check.mjs",
+    "build:demo": "vite build && node scripts/size-check.mjs && cp dist/dw-offers.js ../../apps/demo/public/dw-offers.js"
   },
   "dependencies": {
     "@dw/contracts": "workspace:*",
