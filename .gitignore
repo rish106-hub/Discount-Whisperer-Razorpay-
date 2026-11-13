@@ -14,3 +14,4 @@ tools/seed/out/*
 !tools/seed/out/m1.json
 playwright-report/
 test-results/
+supabase/.temp/
