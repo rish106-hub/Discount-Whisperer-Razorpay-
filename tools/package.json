@@ -1,0 +1,26 @@
+{
+  "name": "@dw/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed:generate": "tsx seed/generate.ts",
+    "seed:load": "tsx seed/load.ts",
+    "test": "node --import tsx --test seed/diff.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "smoke": "playwright test -c smoke/playwright.config.ts",
+    "k6:ladder": "k6 run k6/ladder.js",
+    "k6:validate": "k6 run k6/validate.js"
+  },
+  "dependencies": {
+    "@dw/contracts": "workspace:*",
+    "@faker-js/faker": "10.5.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1",
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
