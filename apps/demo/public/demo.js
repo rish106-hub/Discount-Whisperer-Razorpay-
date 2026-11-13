@@ -1,3 +1,4 @@
+import { pickOffer } from "./pick-offer.js";
 // Demo store glue. Holds no keys: the Razorpay key id arrives in the server order response.
 const MERCHANT = "m1";
 const UNIT_PAISE = 180000; // Rs 1,800 tant saree
@@ -71,21 +72,41 @@ function loadCheckout() { // only called from Pay
   return checkoutLoading;
 }
 
+let kindsCache = null;
+/** id -> {kind} from the same ladder the widget uses (cashback does not reduce the charge). */
+async function offerKinds() {
+  if (!kindsCache) {
+    try {
+      const res = await fetch(API + "/v1/ladder/" + MERCHANT);
+      kindsCache = new Map(((await res.json()).offers || []).map((o) => [o.id, { kind: o.kind }]));
+    } catch { return new Map(); }
+  }
+  return kindsCache;
+}
+
 async function pay() {
   const btn = $("pay-button");
   btn.disabled = true;
   show("verify-result", "Not started.");
   try {
-    // Best offer the widget is showing for this method; null = pay full price. The server re-validates either way.
-    const offerId = el.lookupResult?.applicable?.[0]?.offerId ?? null;
-    const body = { merchantId: MERCHANT, cartPaise: cartPaise(), method: method(), offerId };
+    // Biggest-saving applicable offer that still leaves a payable charge; null = pay full price. The server re-validates.
+    const cart = cartPaise();
+    const offerId = pickOffer(el.lookupResult?.applicable, await offerKinds(), cart);
+    const body = { merchantId: MERCHANT, cartPaise: cart, method: method(), offerId };
     if (MOCK) {
       show("order-result", { mock: true, request: body, note: "Razorpay not called in mock mode." });
       show("verify-result", "Skipped (mock mode).");
       return;
     }
-    const order = await postJson("/v1/payments/order", body);
-    show("order-result", { status: order.status, ...order.data });
+    let order = await postJson("/v1/payments/order", body);
+    if (offerId !== null && order.status === 409 && ["invalid_offer", "amount_too_low"].includes(order.data?.error)) {
+      // Server disagrees with the shown offer: retry once at full price and say so.
+      const retry = await postJson("/v1/payments/order", { ...body, offerId: null });
+      show("order-result", { retried_without_offer: true, first_error: order.data?.error, status: retry.status, ...retry.data });
+      order = retry;
+    } else {
+      show("order-result", { status: order.status, ...order.data });
+    }
     if (!order.ok) return;
     await loadCheckout();
     const o = order.data;
