@@ -1,0 +1,72 @@
+{
+  "v": 1,
+  "merchantId": "m1",
+  "version": "e86ed5ffac77ebad",
+  "builtAt": 1780272000000,
+  "disabled": false,
+  "mins": [
+    0,
+    199900,
+    249900
+  ],
+  "offers": [
+    {
+      "id": "m1_O3",
+      "code": "O3",
+      "kind": "cashback_pct",
+      "value": 5,
+      "maxPaise": null,
+      "minOrderPaise": 0,
+      "method": "UPI",
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "fundedBy": "merchant"
+    },
+    {
+      "id": "m1_O1",
+      "code": "O1",
+      "kind": "pct",
+      "value": 10,
+      "maxPaise": 30000,
+      "minOrderPaise": 199900,
+      "method": null,
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "fundedBy": "merchant"
+    },
+    {
+      "id": "m1_O2",
+      "code": "O2",
+      "kind": "flat",
+      "value": 25000,
+      "maxPaise": null,
+      "minOrderPaise": 249900,
+      "method": "HDFC_CC",
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "fundedBy": "bank"
+    }
+  ],
+  "fillers": [
+    {
+      "sku": "gamcha",
+      "name": "Gamcha",
+      "pricePaise": 19900
+    },
+    {
+      "sku": "handloom-stole",
+      "name": "Handloom stole",
+      "pricePaise": 44900
+    },
+    {
+      "sku": "silk-potli-bag",
+      "name": "Silk potli bag",
+      "pricePaise": 69900
+    },
+    {
+      "sku": "tant-saree",
+      "name": "Tant saree",
+      "pricePaise": 129900
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@dw/widget",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": true,
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "build": "vite build",
+    "size-check": "node scripts/size-check.mjs",
+    "build:check": "vite build && node scripts/size-check.mjs",
+    "build:demo": "vite build && node scripts/size-check.mjs && cp dist/dw-offers.js ../../apps/demo/public/dw-offers.js"
+  },
+  "dependencies": {
+    "@dw/contracts": "workspace:*",
+    "@dw/offer-core": "workspace:*",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "happy-dom": "21.0.4",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  }
+}

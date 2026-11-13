@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shantipur Tant House: Discount Whisperer demo</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="top"><h1>Shantipur Tant House</h1><p class="sub">Demo store. Razorpay test mode only.</p></header>
+  <main>
+    <section class="product" aria-labelledby="p-title">
+      <div class="art" role="img" aria-label="Tant saree illustration"></div>
+      <div class="info">
+        <h2 id="p-title">Handloom tant saree</h2>
+        <p class="price">Rs 1,800 each</p>
+
+        <div class="qty" role="group" aria-label="Quantity">
+          <button type="button" id="qty-minus" data-testid="qty-minus" aria-label="Decrease quantity">&minus;</button>
+          <output id="qty" aria-live="polite">1</output>
+          <button type="button" id="qty-plus" data-testid="qty-plus" aria-label="Increase quantity">+</button>
+        </div>
+
+        <p class="cart">Cart total: <strong id="cart-value" data-testid="cart-value">Rs 1,800</strong></p>
+        <p id="extras" class="extras" hidden></p>
+
+        <dw-offers merchant-id="m1" cart-value-paise="180000"></dw-offers>
+
+        <label class="method">Pay with
+          <select id="pay-method" data-testid="pay-method">
+            <option value="">Any</option>
+            <option value="UPI">UPI</option>
+            <option value="HDFC_CC">HDFC_CC</option>
+          </select>
+        </label>
+        <button type="button" id="pay-button" data-testid="pay-button" class="pay">Pay</button>
+      </div>
+    </section>
+
+    <section class="results" aria-live="polite">
+      <h3>Order</h3>
+      <pre id="order-result" data-testid="order-result">Not started.</pre>
+      <h3>Verification</h3>
+      <pre id="verify-result" data-testid="verify-result">Not started.</pre>
+      <p class="note">Test cards and UPI ids: <a href="https://razorpay.com/docs/payments/payments/test-card-details/" rel="noopener">Razorpay test payment docs</a>. Nothing here is a real charge.</p>
+    </section>
+  </main>
+  <!-- demo.js first: in ?api=mock it patches fetch before the widget loads -->
+  <script type="module" src="./demo.js"></script>
+  <script type="module" src="./dw-offers.js"></script>
+</body>
+</html>
