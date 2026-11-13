@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "tools"
+
+# pnpm 11 blocks dependency build scripts by default. esbuild (via tsx, later vite/wrangler) needs its postinstall.
+allowBuilds:
+  esbuild: true

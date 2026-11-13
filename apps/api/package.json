@@ -1,0 +1,17 @@
+{
+  "name": "@dw/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dw/contracts": "workspace:*",
+    "hono": "4.13.18"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260702.1",
+    "typescript": "5.9.3"
+  }
+}

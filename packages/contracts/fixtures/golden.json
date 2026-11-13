@@ -1,0 +1,1055 @@
+{
+  "description": "Golden fixtures for offer-core. Money in paise, times epoch ms UTC. Window 2026-01-01 .. 2030-01-01 (end exclusive). Default now 2026-06-01. Lookup cases: buildLadder(set, nowMs=input.nowMs) then lookup; compare score with 1e-9 tolerance.",
+  "sets": {
+    "m1": {
+      "merchantId": "m1",
+      "offers": [
+        {
+          "id": "m1_O1",
+          "merchantId": "m1",
+          "code": "O1",
+          "maxPaise": 30000,
+          "minOrderPaise": 199900,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "pct",
+          "value": 10,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "m1_O2",
+          "merchantId": "m1",
+          "code": "O2",
+          "maxPaise": null,
+          "minOrderPaise": 249900,
+          "method": "HDFC_CC",
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 25000,
+          "fundedBy": "bank"
+        },
+        {
+          "id": "m1_O3",
+          "merchantId": "m1",
+          "code": "O3",
+          "maxPaise": null,
+          "minOrderPaise": 0,
+          "method": "UPI",
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "cashback_pct",
+          "value": 5,
+          "fundedBy": "merchant"
+        }
+      ],
+      "fillers": [
+        {
+          "sku": "gamcha",
+          "name": "Gamcha",
+          "pricePaise": 19900
+        },
+        {
+          "sku": "handloom-stole",
+          "name": "Handloom stole",
+          "pricePaise": 44900
+        },
+        {
+          "sku": "silk-potli-bag",
+          "name": "Silk potli bag",
+          "pricePaise": 69900
+        },
+        {
+          "sku": "tant-saree",
+          "name": "Tant saree",
+          "pricePaise": 129900
+        }
+      ]
+    },
+    "e1": {
+      "merchantId": "e1",
+      "offers": [
+        {
+          "id": "e1_A",
+          "merchantId": "e1",
+          "code": "A",
+          "maxPaise": null,
+          "minOrderPaise": 100000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "pct",
+          "value": 10,
+          "fundedBy": "bank"
+        },
+        {
+          "id": "e1_B",
+          "merchantId": "e1",
+          "code": "B",
+          "maxPaise": null,
+          "minOrderPaise": 100000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 10000,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e1_C",
+          "merchantId": "e1",
+          "code": "C",
+          "maxPaise": null,
+          "minOrderPaise": 60000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 80000,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e1_D",
+          "merchantId": "e1",
+          "code": "D",
+          "maxPaise": null,
+          "minOrderPaise": 0,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": false,
+          "updatedAt": 1767225600000,
+          "kind": "pct",
+          "value": 5,
+          "fundedBy": "merchant"
+        }
+      ],
+      "fillers": [
+        {
+          "sku": "shawl",
+          "name": "Shawl",
+          "pricePaise": 60000
+        },
+        {
+          "sku": "bag",
+          "name": "Bag",
+          "pricePaise": 60000
+        },
+        {
+          "sku": "pin",
+          "name": "Pin",
+          "pricePaise": 5000
+        }
+      ]
+    },
+    "e2": {
+      "merchantId": "e2",
+      "offers": [
+        {
+          "id": "e2_W",
+          "merchantId": "e2",
+          "code": "W",
+          "maxPaise": null,
+          "minOrderPaise": 10000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 1000,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e2_X",
+          "merchantId": "e2",
+          "code": "X",
+          "maxPaise": null,
+          "minOrderPaise": 100000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 10000,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e2_Y",
+          "merchantId": "e2",
+          "code": "Y",
+          "maxPaise": null,
+          "minOrderPaise": 200000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "pct",
+          "value": 10,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e2_Z",
+          "merchantId": "e2",
+          "code": "Z",
+          "maxPaise": null,
+          "minOrderPaise": 50000,
+          "method": null,
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "flat",
+          "value": 5000,
+          "fundedBy": "merchant"
+        },
+        {
+          "id": "e2_K",
+          "merchantId": "e2",
+          "code": "K",
+          "maxPaise": 2000,
+          "minOrderPaise": 30000,
+          "method": "UPI",
+          "startsAt": 1767225600000,
+          "endsAt": 1893456000000,
+          "razorpayOfferId": null,
+          "active": true,
+          "updatedAt": 1767225600000,
+          "kind": "cashback_pct",
+          "value": 10,
+          "fundedBy": "merchant"
+        }
+      ],
+      "fillers": [
+        {
+          "sku": "tag",
+          "name": "Gift tag",
+          "pricePaise": 10000
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "spec: Rs 1,800, no method -> UPI cashback conditional, unlock O1 with gamcha",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 180000,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 1,
+        "applicable": [],
+        "conditional": [
+          {
+            "offerId": "m1_O3",
+            "method": "UPI",
+            "savingPaise": 9000
+          }
+        ],
+        "unlockable": [
+          {
+            "offerId": "m1_O1",
+            "gapPaise": 19900,
+            "savingPaise": 19990,
+            "score": 1.0045226130653266,
+            "method": null
+          },
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 69900,
+            "savingPaise": 25000,
+            "score": 0.35765379113018597,
+            "method": "HDFC_CC"
+          }
+        ],
+        "filler": {
+          "sku": "gamcha",
+          "name": "Gamcha",
+          "pricePaise": 19900
+        }
+      }
+    },
+    {
+      "name": "spec: Rs 2,600 HDFC_CC -> O1 and O2 apply, nothing left to unlock",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 3,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 26000
+          },
+          {
+            "offerId": "m1_O2",
+            "savingPaise": 25000
+          }
+        ],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "boundary: O1 min - 1",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 199899,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 1,
+        "applicable": [],
+        "conditional": [
+          {
+            "offerId": "m1_O3",
+            "method": "UPI",
+            "savingPaise": 9994
+          }
+        ],
+        "unlockable": [
+          {
+            "offerId": "m1_O1",
+            "gapPaise": 1,
+            "savingPaise": 19990,
+            "score": 19990,
+            "method": null
+          },
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 50001,
+            "savingPaise": 25000,
+            "score": 0.499990000199996,
+            "method": "HDFC_CC"
+          }
+        ],
+        "filler": {
+          "sku": "gamcha",
+          "name": "Gamcha",
+          "pricePaise": 19900
+        }
+      }
+    },
+    {
+      "name": "boundary: O1 min exactly",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 199900,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 2,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 19990
+          }
+        ],
+        "conditional": [
+          {
+            "offerId": "m1_O3",
+            "method": "UPI",
+            "savingPaise": 9995
+          }
+        ],
+        "unlockable": [
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 50000,
+            "savingPaise": 25000,
+            "score": 0.5,
+            "method": "HDFC_CC"
+          }
+        ],
+        "filler": {
+          "sku": "silk-potli-bag",
+          "name": "Silk potli bag",
+          "pricePaise": 69900
+        }
+      }
+    },
+    {
+      "name": "boundary: O1 min + 1",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 199901,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 2,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 19990
+          }
+        ],
+        "conditional": [
+          {
+            "offerId": "m1_O3",
+            "method": "UPI",
+            "savingPaise": 9995
+          }
+        ],
+        "unlockable": [
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 49999,
+            "savingPaise": 25000,
+            "score": 0.500010000200004,
+            "method": "HDFC_CC"
+          }
+        ],
+        "filler": {
+          "sku": "silk-potli-bag",
+          "name": "Silk potli bag",
+          "pricePaise": 69900
+        }
+      }
+    },
+    {
+      "name": "method UPI at O1 min: O3 applies, HDFC-only O2 dropped from unlockable",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 199900,
+        "method": "UPI",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 2,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 19990
+          },
+          {
+            "offerId": "m1_O3",
+            "savingPaise": 9995
+          }
+        ],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "other method ICICI_CC: only method-free O1 applies",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "ICICI_CC",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 3,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 26000
+          }
+        ],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "boundary: O2 min - 1, no method",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 249899,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 2,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 24989
+          }
+        ],
+        "conditional": [
+          {
+            "offerId": "m1_O3",
+            "method": "UPI",
+            "savingPaise": 12494
+          }
+        ],
+        "unlockable": [
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 1,
+            "savingPaise": 25000,
+            "score": 25000,
+            "method": "HDFC_CC"
+          }
+        ],
+        "filler": {
+          "sku": "gamcha",
+          "name": "Gamcha",
+          "pricePaise": 19900
+        }
+      }
+    },
+    {
+      "name": "cap hit: O1 capped at 30000",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 500000,
+        "method": "HDFC_CC",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 3,
+        "applicable": [
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 30000
+          },
+          {
+            "offerId": "m1_O2",
+            "savingPaise": 25000
+          }
+        ],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "expired: now == endsAt (exclusive end)",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "nowMs": 1893456000000
+      },
+      "expected": {
+        "step": 0,
+        "applicable": [],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "not started: now == startsAt - 1",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "nowMs": 1767225599999
+      },
+      "expected": {
+        "step": 0,
+        "applicable": [],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "no filler fits: cart 0 HDFC_CC, top unlock O2 gap 249900 > every filler",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 0,
+        "method": "HDFC_CC",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 1,
+        "applicable": [],
+        "conditional": [],
+        "unlockable": [
+          {
+            "offerId": "m1_O2",
+            "gapPaise": 249900,
+            "savingPaise": 25000,
+            "score": 0.10004001600640255,
+            "method": "HDFC_CC"
+          },
+          {
+            "offerId": "m1_O1",
+            "gapPaise": 199900,
+            "savingPaise": 19990,
+            "score": 0.1,
+            "method": null
+          }
+        ],
+        "filler": null
+      }
+    },
+    {
+      "name": "below every min (inactive D ignored); filler price tie -> sku asc",
+      "kind": "lookup",
+      "set": "e1",
+      "input": {
+        "cartPaise": 0,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 0,
+        "applicable": [],
+        "conditional": [],
+        "unlockable": [
+          {
+            "offerId": "e1_C",
+            "gapPaise": 60000,
+            "savingPaise": 60000,
+            "score": 1,
+            "method": null
+          },
+          {
+            "offerId": "e1_B",
+            "gapPaise": 100000,
+            "savingPaise": 10000,
+            "score": 0.1,
+            "method": null
+          },
+          {
+            "offerId": "e1_A",
+            "gapPaise": 100000,
+            "savingPaise": 10000,
+            "score": 0.1,
+            "method": null
+          }
+        ],
+        "filler": {
+          "sku": "bag",
+          "name": "Bag",
+          "pricePaise": 60000
+        }
+      }
+    },
+    {
+      "name": "flat larger than cart; score+gap tie -> merchant-funded first",
+      "kind": "lookup",
+      "set": "e1",
+      "input": {
+        "cartPaise": 70000,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 1,
+        "applicable": [
+          {
+            "offerId": "e1_C",
+            "savingPaise": 70000
+          }
+        ],
+        "conditional": [],
+        "unlockable": [
+          {
+            "offerId": "e1_B",
+            "gapPaise": 30000,
+            "savingPaise": 10000,
+            "score": 0.3333333333333333,
+            "method": null
+          },
+          {
+            "offerId": "e1_A",
+            "gapPaise": 30000,
+            "savingPaise": 10000,
+            "score": 0.3333333333333333,
+            "method": null
+          }
+        ],
+        "filler": {
+          "sku": "bag",
+          "name": "Bag",
+          "pricePaise": 60000
+        }
+      }
+    },
+    {
+      "name": "live at now == startsAt; O2 exact min; applicable sorted by saving desc",
+      "kind": "lookup",
+      "set": "m1",
+      "input": {
+        "cartPaise": 249900,
+        "method": "HDFC_CC",
+        "nowMs": 1767225600000
+      },
+      "expected": {
+        "step": 3,
+        "applicable": [
+          {
+            "offerId": "m1_O2",
+            "savingPaise": 25000
+          },
+          {
+            "offerId": "m1_O1",
+            "savingPaise": 24990
+          }
+        ],
+        "conditional": [],
+        "unlockable": [],
+        "filler": null
+      }
+    },
+    {
+      "name": "top-3 truncation: four 0.1 scores, gap asc decides; capped cashback K ranks last and is cut",
+      "kind": "lookup",
+      "set": "e2",
+      "input": {
+        "cartPaise": 0,
+        "method": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "step": 0,
+        "applicable": [],
+        "conditional": [],
+        "unlockable": [
+          {
+            "offerId": "e2_W",
+            "gapPaise": 10000,
+            "savingPaise": 1000,
+            "score": 0.1,
+            "method": null
+          },
+          {
+            "offerId": "e2_Z",
+            "gapPaise": 50000,
+            "savingPaise": 5000,
+            "score": 0.1,
+            "method": null
+          },
+          {
+            "offerId": "e2_X",
+            "gapPaise": 100000,
+            "savingPaise": 10000,
+            "score": 0.1,
+            "method": null
+          }
+        ],
+        "filler": {
+          "sku": "tag",
+          "name": "Gift tag",
+          "pricePaise": 10000
+        }
+      }
+    },
+    {
+      "name": "check order: below_min wins over method_mismatch",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 100000,
+        "method": null,
+        "offerId": "m1_O2",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "below_min",
+        "savingPaise": 0,
+        "chargePaise": 100000
+      }
+    },
+    {
+      "name": "check order: expired wins over below_min",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 100,
+        "method": null,
+        "offerId": "m1_O1",
+        "nowMs": 1893456000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "expired",
+        "savingPaise": 0,
+        "chargePaise": 100
+      }
+    },
+    {
+      "name": "live at now == endsAt - 1",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "offerId": "m1_O2",
+        "nowMs": 1893455999999
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 25000,
+        "chargePaise": 235000
+      }
+    },
+    {
+      "name": "cashback cap hit: saving 2000, charge unchanged",
+      "kind": "validate",
+      "set": "e2",
+      "input": {
+        "cartPaise": 50000,
+        "method": "UPI",
+        "offerId": "e2_K",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 2000,
+        "chargePaise": 50000
+      }
+    },
+    {
+      "name": "spec: O2 at Rs 2,600 HDFC_CC",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "offerId": "m1_O2",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 25000,
+        "chargePaise": 235000
+      }
+    },
+    {
+      "name": "spec: O1 below min at Rs 1,800",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 180000,
+        "method": null,
+        "offerId": "m1_O1",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "below_min",
+        "savingPaise": 0,
+        "chargePaise": 180000
+      }
+    },
+    {
+      "name": "cashback not deducted from charge",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 200000,
+        "method": "UPI",
+        "offerId": "m1_O3",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 10000,
+        "chargePaise": 200000
+      }
+    },
+    {
+      "name": "method required but none chosen",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 200000,
+        "method": null,
+        "offerId": "m1_O3",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "method_mismatch",
+        "savingPaise": 0,
+        "chargePaise": 200000
+      }
+    },
+    {
+      "name": "wrong method",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "UPI",
+        "offerId": "m1_O2",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "method_mismatch",
+        "savingPaise": 0,
+        "chargePaise": 260000
+      }
+    },
+    {
+      "name": "unknown offer",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "offerId": "m1_O9",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "unknown_offer",
+        "savingPaise": 0,
+        "chargePaise": 260000
+      }
+    },
+    {
+      "name": "expired at endsAt",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "offerId": "m1_O2",
+        "nowMs": 1893456000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "expired",
+        "savingPaise": 0,
+        "chargePaise": 260000
+      }
+    },
+    {
+      "name": "not started",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 260000,
+        "method": "HDFC_CC",
+        "offerId": "m1_O2",
+        "nowMs": 1767225599999
+      },
+      "expected": {
+        "valid": false,
+        "reason": "not_started",
+        "savingPaise": 0,
+        "chargePaise": 260000
+      }
+    },
+    {
+      "name": "cap hit",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 500000,
+        "method": null,
+        "offerId": "m1_O1",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 30000,
+        "chargePaise": 470000
+      }
+    },
+    {
+      "name": "inactive offer",
+      "kind": "validate",
+      "set": "e1",
+      "input": {
+        "cartPaise": 200000,
+        "method": null,
+        "offerId": "e1_D",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": false,
+        "reason": "inactive",
+        "savingPaise": 0,
+        "chargePaise": 200000
+      }
+    },
+    {
+      "name": "flat larger than cart -> charge 0 (payments must reject < 100 paise)",
+      "kind": "validate",
+      "set": "e1",
+      "input": {
+        "cartPaise": 70000,
+        "method": null,
+        "offerId": "e1_C",
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 70000,
+        "chargePaise": 0
+      }
+    },
+    {
+      "name": "no offer selected",
+      "kind": "validate",
+      "set": "m1",
+      "input": {
+        "cartPaise": 180000,
+        "method": null,
+        "offerId": null,
+        "nowMs": 1780272000000
+      },
+      "expected": {
+        "valid": true,
+        "reason": "ok",
+        "savingPaise": 0,
+        "chargePaise": 180000
+      }
+    }
+  ]
+}
