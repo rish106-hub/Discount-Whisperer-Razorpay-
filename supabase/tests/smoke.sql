@@ -1,5 +1,5 @@
--- Local-only check (plain Postgres, no PostgREST). Assumes roles anon/authenticated/service_role exist,
--- schema net with a stub net.http_post, and migrations 0001-0004 applied. Raises on first failure.
+-- Smoke test on plain Postgres (no PostgREST): run after local/bootstrap.sql + migrations 0001-0004 + seed.
+-- Same checks as smoke.mjs (hosted). Raises on first failure; rolls back so the DB stays clean.
 \set ON_ERROR_STOP on
 begin;
 set local role service_role;

@@ -9,9 +9,21 @@ Migrations, seed and smoke test for the Discount Whisperer database. Names match
 | `migrations/0003_rls.sql` | RLS on every table, no policies; grants revoked from anon/authenticated. |
 | `migrations/0004_outbox_trigger.sql` | `pg_net` extension + SECURITY DEFINER trigger on `outbox` insert. |
 | `seed.sql` | Golden merchant m1 only; `razorpay_offer_id` NULL. |
-| `tests/smoke.mjs` | Zero-dep (fetch -> PostgREST) end-to-end check; cleans up merchant `smoke_t3`. |
+| `local/bootstrap.sql` | LOCAL ONLY (plain PG): creates anon/authenticated/service_role + `extensions` schema. Not a migration. |
+| `tests/smoke.sql` | Plain-Postgres smoke: RPCs via `set role service_role`, RLS via `set role anon`, empty-app_config outbox insert. Rolls back. |
+| `tests/smoke.mjs` | Hosted smoke (fetch -> PostgREST, zero-dep); cleans up merchant `smoke_t3`. Run in T7. |
 
-## Apply
+## Local Postgres 17 (no Docker, no Supabase CLI)
+Own cluster in `~/.dw-pg` (trust auth, loopback only), port 54322, db `dw`. Connection: `postgresql://postgres@127.0.0.1:54322/dw` (no password).
+```bash
+export PATH=/opt/homebrew/opt/postgresql@17/bin:$PATH LC_ALL=en_US.UTF-8
+pg_ctl -D ~/.dw-pg/data -o "-p 54322 -k $HOME/.dw-pg -c listen_addresses=127.0.0.1" -l ~/.dw-pg/log start   # stop: pg_ctl -D ~/.dw-pg/data stop
+for f in supabase/local/bootstrap.sql supabase/migrations/*.sql supabase/seed.sql; do psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 54322 -U postgres -d dw -f "$f"; done
+psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 54322 -U postgres -d dw -f supabase/tests/smoke.sql
+```
+`pg_net` is not installed locally: 0004 creates it only if available; the trigger returns early without `app_config`, so outbox inserts work.
+
+## Apply (hosted)
 ```bash
 for f in supabase/migrations/*.sql; do psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql   # optional, m1 demo data

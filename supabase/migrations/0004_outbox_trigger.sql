@@ -1,6 +1,11 @@
 -- 0004_outbox_trigger: on each outbox insert, ping the Worker's /internal/rebuild via pg_net.
 -- Config comes from app_config (T7 sets rebuild_url + rebuild_secret after deploy). Missing -> no-op.
-create extension if not exists pg_net with schema extensions;
+-- pg_net exists on hosted Supabase only; plain Postgres skips it (net.http_post resolves at runtime).
+do $$ begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    create extension if not exists pg_net with schema extensions;
+  end if;
+end $$;
 
 create or replace function public.outbox_notify()
 returns trigger
