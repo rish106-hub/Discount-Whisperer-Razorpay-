@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Discount Whisperer v3.2: 4-hour multi-agent build plan.
+  Stack: Cloudflare Workers + KV, Supabase Postgres, Razorpay test mode, Preact widget.
+  STATUS: T0 done and approved at checkpoint 1. Contracts are FROZEN.
+  WHERE THIS FILE AND THE CODE DISAGREE, packages/contracts/src AND REPORT.md
+  ("Decisions to approve at checkpoint 1", all approved) WIN.
+-->
+<plan name="discount-whisperer-v3" version="1.1" timebox_hours="4">
+
+  <meta>
+    <goal>Ship a working, deployed Discount Whisperer in 4 hours. A merchant's offers live in Supabase. Every edit rebuilds a small "ladder" file in Cloudflare KV. A widget on a demo product page shows offers that apply now, the cheapest next unlock, and a product that fills the gap. Pay creates a real Razorpay test-mode order, and the server re-validates the offer with the same rules code before charging.</goal>
+    <cost_budget>INR 0. Free tiers and test mode only.</cost_budget>
+  </meta>
+
+  <preflight owner="Rishav">
+    <env_vars>
+      <var name="CLOUDFLARE_API_TOKEN" used_by="T7"/>
+      <var name="CLOUDFLARE_ACCOUNT_ID" used_by="T7"/>
+      <var name="SUPABASE_URL" used_by="T3,T7"/>
+      <var name="SUPABASE_SERVICE_ROLE_KEY" used_by="T3,T7">Server only. Never in the widget or demo page.</var>
+      <var name="SUPABASE_DB_URL" used_by="T3">Postgres connection string with password, for applying migrations.</var>
+      <var name="RAZORPAY_KEY_ID" used_by="T4,T7">Test key, starts with rzp_test_.</var>
+      <var name="RAZORPAY_KEY_SECRET" used_by="T4,T7">Server only.</var>
+      <var name="ADMIN_TOKEN" used_by="T6,T7">Random 32+ characters.</var>
+      <var name="REBUILD_HOOK_SECRET" used_by="T3,T7">Random 32+ characters. Shared by the Supabase trigger and the Worker.</var>
+    </env_vars>
+    <note>Secrets are exported only in the shell of the task that needs them. Never paste them into prompts, files or reports.</note>
+  </preflight>
+
+  <agent_persona>See CLAUDE.md (persona, priorities, when_stuck rule).</agent_persona>
+
+  <product>
+    <one_line>An offers widget that shows what applies now and what a shopper unlocks by adding a little more, for shoppers at small Indian D2C stores and the merchants who pay for those offers.</one_line>
+    <north_star>AOV uplift for sessions that saw the widget.</north_star>
+    <input_metrics>widget_seen_rate = seen / page views (null: no page_view event); nudge_click_rate = nudge_click / seen; addon_rate = addon / nudge_click; paid_rate = payment_verified / checkout.</input_metrics>
+    <guardrails>Shown-versus-validated mismatch = 0. Validated-versus-charged mismatch = 0. Discount spend within each offer's cap.</guardrails>
+    <in_scope_offer_types>pct (percent off, optional cap); flat (fixed amount off); cashback_pct (percent cashback, optional cap; shown as savings, NOT deducted from the charged amount). Each may require a payment method (UPI, HDFC_CC, ...) and has min order, start time and end time.</in_scope_offer_types>
+    <out_of_scope>No-cost EMI. Per-shopper eligibility, usage caps, personal offers. SKU-level offers. Merchant dashboard UI. Razorpay live mode, refunds, settlements. CDN purge-by-URL.</out_of_scope>
+  </product>
+
+  <design>
+    <big_idea>Offers only change at a few cart values. On every edit, precompute each merchant's offers into a small sorted "ladder" file. Each page view binary-searches its step in the browser. The server is touched only on edits and at payment.</big_idea>
+
+    <components>
+      <component name="Supabase Postgres">Source of truth. Tables offers, fillers, outbox, events, payments, app_config. RPC functions write an offer and its outbox row in one transaction. RLS on, no anon policies: only the Worker (service role) reads and writes.</component>
+      <component name="Supabase trigger (pg_net)">AFTER INSERT on outbox: net.http_post to the Worker's /internal/rebuild with header x-rebuild-secret. Worker URL and secret read from app_config, so they can be set after deploy.</component>
+      <component name="Cloudflare Worker (Hono)">Admin routes, ladder route, internal rebuild, checkout validate, Razorpay order and verify, events, metrics, and a cron reconciler every 5 min as the safety net.</component>
+      <component name="Cloudflare KV">Key ladder:{merchantId}. Eventually consistent; checkout always re-reads Supabase.</component>
+      <component name="offer-core (TypeScript)">buildLadder, lookup, bruteForce, savingPaise, validateSelection. Used by the Worker and bundled into the widget.</component>
+      <component name="dw-offers widget (Preact custom element)">Fetches the ladder, runs lookup locally, renders, sends events. 800 ms timeout, fails closed.</component>
+      <component name="Demo store page">Static page served by Worker static assets. Cart controls, payment-method picker, Razorpay Checkout (checkout.js) in test mode.</component>
+      <component name="Razorpay test mode">Orders API with offers[], Standard Checkout, HMAC signature verification on the server.</component>
+    </components>
+
+    <data_model>
+      <rule>All money is integer paise. Never floats for money. Rs 1,999 = 199900.</rule>
+      <rule>All times are epoch milliseconds (UTC) in TypeScript, timestamptz in Postgres.</rule>
+      <table name="offers">id text pk (e.g. "m1_O1"), merchant_id text, code text ("O1"), kind text check in (pct, flat, cashback_pct), value int, max_paise int null, min_order_paise int default 0, method text null, starts_at timestamptz, ends_at timestamptz, funded_by text check in (merchant, bank), razorpay_offer_id text null, active bool default true, updated_at timestamptz default now(). Index (merchant_id, active).</table>
+      <table name="fillers">merchant_id text, sku text, name text, price_paise int, pk (merchant_id, sku). Max 20 per merchant (enforced in API).</table>
+      <table name="outbox">id bigserial pk, merchant_id text, created_at timestamptz default now(), processed_at timestamptz null. Partial index where processed_at is null.</table>
+      <table name="events">id bigserial pk, merchant_id text, session_id text, type text check in (seen, nudge_click, addon, checkout, payment_verified), cart_paise int, offer_id text null, created_at timestamptz default now(). Index (merchant_id, type).</table>
+      <table name="payments">id bigserial pk, merchant_id text, offer_id text null, razorpay_order_id text unique, razorpay_payment_id text unique null, amount_paise int, cart_paise int (checkpoint-1 addition), expected_saving_paise int, mode text check in (razorpay_offer, server_discount) (checkpoint-1 addition), status text check in (created, verified, failed), created_at, updated_at.</table>
+      <table name="app_config">key text pk, value text. Keys: rebuild_url, rebuild_secret. Readable only by the trigger function (security definer).</table>
+      <rpc name="upsert_offer_with_outbox(p_offer jsonb) returns offers">One transaction: upsert the offer row, insert an outbox row for its merchant.</rpc>
+      <rpc name="set_fillers_with_outbox(p_merchant_id text, p_fillers jsonb) returns int">One transaction: replace fillers, insert outbox row.</rpc>
+      <rpc name="deactivate_offer_with_outbox(p_offer_id text) returns void">Soft delete plus outbox row.</rpc>
+      <rpc name="metrics_for_merchant(p_merchant_id text) returns jsonb">Counts per event type.</rpc>
+      <ladder>See packages/contracts/src/types/ladder.ts (fields, sort order, version hash). razorpayOfferId is NOT in the ladder.</ladder>
+    </data_model>
+
+    <lookup_semantics>
+      <authoritative>packages/contracts/src/types/lookup.ts and validate.ts doc comments, plus fixtures/golden.json (32 cases, independently recomputed).</authoritative>
+      <step>Live offer: active and startsAt &lt;= now &lt; endsAt.</step>
+      <step>step = number of live offers with minOrderPaise &lt;= cartPaise (method does not matter).</step>
+      <step>Offers with min &lt;= cart: method null or equal -> applicable; offer needs a method and input method is null -> conditional; else drop. Both sorted by savingPaise desc, then offerId asc.</step>
+      <step>Offers with min > cart: keep if offer method null, equal, or input method null. gapPaise = min - cart. savingPaise at exactly min. score = saving / gap. Sort score desc, gap asc, merchant-funded first, id asc. Top 3. Each carries method.</step>
+      <step>Filler: cheapest (then sku asc) with pricePaise >= unlockable[0].gapPaise. Null if none fits or nothing to unlock.</step>
+      <step>savingPaise: pct and cashback_pct = floor(cart * value / 100), capped at maxPaise if set. flat = min(value, cart).</step>
+      <validate_selection>validateSelection(offers, {cartPaise, method, offerId|null, nowMs}) -> {valid, reason, savingPaise, chargePaise}. offerId null -> valid, saving 0. Check order: unknown_offer, inactive, not_started, expired, below_min, method_mismatch. Invalid: saving 0, charge = cart. chargePaise = cart - saving for pct and flat; = cart for cashback_pct. Charge may be 0; payments must reject below 100 paise (409 amount_too_low).</validate_selection>
+      <invariant>lookup(buildLadder(offers, nowB), x) deep-equals bruteForce(offers, x) for every x with x.nowMs >= nowB. Every offer in lookup().applicable passes validateSelection with the same saving.</invariant>
+    </lookup_semantics>
+
+    <api_contract>
+      <mounting>apps/api/src/index.ts (frozen) mounts each module at a prefix; module paths are relative. Modules export xRoutes(deps: Deps): Hono&lt;AppEnv&gt;. createApp(deps) is exported for tests.</mounting>
+      <endpoint method="GET" path="/healthz">200 {ok:true, version}.</endpoint>
+      <endpoint method="GET" path="/v1/ladder/:merchantId">200 ladder JSON. Cache-Control: public, max-age=60. ETag = version; If-None-Match returns 304. 404 {error:"unknown_merchant"}. CORS: GET from any origin.</endpoint>
+      <endpoint method="POST" path="/v1/admin/merchants/:merchantId/offers" auth="Bearer ADMIN_TOKEN">Body NewOffer. rpc upsert_offer_with_outbox. 201 {offer}. 400 validation errors. 401 bad token.</endpoint>
+      <endpoint method="PATCH" path="/v1/admin/merchants/:merchantId/offers/:offerId" auth="Bearer">Partial offer; merge then re-validate with NewOfferSchema. 200 {offer}.</endpoint>
+      <endpoint method="DELETE" path="/v1/admin/merchants/:merchantId/offers/:offerId" auth="Bearer">Soft delete. 200 {}.</endpoint>
+      <endpoint method="PUT" path="/v1/admin/merchants/:merchantId/fillers" auth="Bearer">Body Filler[] (max 20). 200 {count}.</endpoint>
+      <endpoint method="POST" path="/v1/admin/merchants/:merchantId/rebuild" auth="Bearer">Force a rebuild now. 200 {version}.</endpoint>
+      <endpoint method="POST" path="/internal/rebuild" auth="x-rebuild-secret header">Body {merchant_id}. Rebuilds and marks outbox rows processed (Repo rebuild protocol). 200 {version}. Constant-time compare.</endpoint>
+      <endpoint method="POST" path="/v1/checkout/validate">Body {merchantId, cartPaise, method, offerId}. Re-reads offers from Supabase (never KV). 200 ValidateResult.</endpoint>
+      <endpoint method="POST" path="/v1/payments/order">Body {merchantId, cartPaise, method, offerId|null}. validateSelection; invalid -> 409 {error:"invalid_offer", detail: reason}; amount below 100 paise -> 409 amount_too_low. Valid: Razorpay test order, payments row status created. 200 {keyId, orderId, amountPaise, currency:"INR", expectedSavingPaise, mode}.</endpoint>
+      <endpoint method="POST" path="/v1/payments/verify">Body {razorpay_order_id, razorpay_payment_id, razorpay_signature}. HMAC-SHA256(order_id + "|" + payment_id, key_secret), constant-time compare. Marks verified or failed. Idempotent on payment_id. 200 {verified}.</endpoint>
+      <endpoint method="POST" path="/v1/events">Body EventRequest. 202. Max body 1 KB. Sent as text/plain via sendBeacon: parse JSON regardless of Content-Type. CORS any origin.</endpoint>
+      <endpoint method="GET" path="/v1/metrics/:merchantId">200 MetricsResponse.</endpoint>
+      <errors>All errors: {error: snake_case_code, detail?}. Never stack traces or upstream secrets.</errors>
+      <logging>One JSON line per request: {ts, route, merchantId, status, ms, ladderVersion?, razorpayOrderId?}. Never log keys, signatures or card data.</logging>
+      <cron>*/5 * * * *: pendingOutboxMerchants(50), rebuild each.</cron>
+    </api_contract>
+
+    <razorpay_contract>
+      <order_create>POST https://api.razorpay.com/v1/orders, Basic auth (key_id:key_secret). Body {amount, currency:"INR", receipt (max 40 chars, "dw_{merchantId}_{ms}"), notes {merchantId, offerId}}.</order_create>
+      <mode name="razorpay_offer">Offer has razorpay_offer_id: amount = cartPaise, offers = [razorpay_offer_id]. Razorpay applies the discount at Checkout.</mode>
+      <mode name="server_discount">No razorpay_offer_id: amount = chargePaise, no offers array. Record mode in payments.</mode>
+      <checkout>Demo loads https://checkout.razorpay.com/v1/checkout.js and opens Razorpay({key: keyId, order_id, amount, currency, name, handler}). Handler posts the three razorpay_* fields to /v1/payments/verify.</checkout>
+      <verify>expected = HMAC_SHA256_hex(key_secret, order_id + "|" + payment_id). Constant-time compare. crypto.subtle in the Worker.</verify>
+      <test_payments>Use Razorpay's documented test cards and UPI ids. Never hardcode card numbers; link the docs.</test_payments>
+    </razorpay_contract>
+
+    <widget_contract>
+      <tag>&lt;dw-offers merchant-id="m1" cart-value-paise="180000" api-base="https://..."&gt;</tag>
+      <cart_updates>Listens on window for CustomEvent "dw:cart" {cartPaise, method?}. Removes the listener in disconnectedCallback.</cart_updates>
+      <loading>Fetch only when visible (IntersectionObserver), once per page. 800 ms AbortController timeout. On any error: render nothing, one console.debug line.</loading>
+      <render>Applies now; conditional ("if you pay with UPI"); top unlock with the gap in rupees; gap-filler line with an "Add" button that dispatches CustomEvent "dw:add" {sku, pricePaise}. Shadow DOM.</render>
+      <events>seen (once, when rendered with data), nudge_click, addon. navigator.sendBeacon (text/plain), fallback fetch keepalive.</events>
+      <budget>At most 15 KB gzip. Imports offer-core; never zod or supabase-js.</budget>
+      <kill_switch>ladder.disabled true -> render nothing.</kill_switch>
+      <test_ids>dw-root, dw-applicable, dw-conditional, dw-nudge, dw-add</test_ids>
+    </widget_contract>
+
+    <demo_contract>
+      <test_ids>cart-value, qty-plus, qty-minus, pay-method, pay-button, order-result, verify-result</test_ids>
+      <behaviour>api-base from ?api= (default same origin; ?api=mock uses public/mock-ladder.json). Product: Rs 1,800 tant saree (180000 paise). Method select: Any, UPI, HDFC_CC. Pay calls /v1/payments/order with the best applicable offer for the chosen method, opens Razorpay Checkout, then /v1/payments/verify, shows the result.</behaviour>
+    </demo_contract>
+  </design>
+
+  <guardrails>See CLAUDE.md G1 to G12.</guardrails>
+
+  <stack>
+    <runtime>Node LTS, pnpm 11 workspaces, TypeScript 5.9 strict, ESM only. pnpm 11 blocks dependency build scripts: add packages that need them under allowBuilds in pnpm-workspace.yaml via a REPORT.md request (root file, T0/T7 owned) or note it.</runtime>
+    <dependencies>hono (T2,T4); zod (T2,T4,T6; never in widget); @supabase/supabase-js (T2,T4); wrangler (T2,T4,T7); @cloudflare/workers-types; @cloudflare/vitest-pool-workers (T2,T4); vitest (T1,T2,T4,T5); fast-check (T1); preact, vite, happy-dom (T5); supabase CLI optional (T3); @faker-js/faker (T6); playwright (T6,T7); k6 binary (T6,T7).</dependencies>
+    <cloudflare>Workers free: 100k requests/day, 10 ms CPU per request. KV: check free read/write limits. Cron */5. Static assets serve apps/demo/public (T7).</cloudflare>
+    <supabase>Free projects pause when idle. pg_net is async; trigger never blocks the write. Mumbai region.</supabase>
+    <datasets>Synthetic offers (T6): 50 merchants m1..m50, 3 to 8 offers each, seeded RNG; m1 is the golden merchant exactly; m50 has 250 offers.</datasets>
+    <golden_merchant id="m1" name="Shantipur Tant House">Exactly sets.m1 in packages/contracts/fixtures/golden.json (O1 pct 10 cap 30000 min 199900; O2 flat 25000 min 249900 HDFC_CC bank; O3 cashback_pct 5 min 0 UPI; fillers gamcha 19900, handloom stole 44900, silk potli bag 69900, tant saree 129900; window 2026-01-01 to 2030-01-01).</golden_merchant>
+  </stack>
+
+  <repo>Ownership table: CLAUDE.md.</repo>
+
+  <tasks>
+
+    <task name="offer-core" id="T1" model="sonnet" effort="high">
+      <context>packages/contracts defines types, signatures and golden.json. This package is the single rules brain for the Worker and the widget. A bug here shows or charges the wrong money.</context>
+      <objective>Implement buildLadder, lookup, bruteForce, savingPaise and validateSelection exactly per lookup_semantics and the contract doc comments, proven by golden tests and property tests.</objective>
+      <scope><in>packages/offer-core/** (src/money.ts, brute.ts, build.ts, lookup.ts, validate.ts, hash.ts, index.ts, test/**, bench/**, package.json, tsconfig.json, vitest.config.ts)</in><out>everything else</out></scope>
+      <constraints>Package name @dw/offer-core. No runtime dependencies. "import type" only from @dw/contracts (golden.json may be imported in tests). No Date.now() inside; time is passed in. Runs in browsers and Workers. Version hash: synchronous FNV-1a 64-bit (BigInt or two 32-bit halves) over canonical JSON with sorted keys of {v, merchantId, disabled, offers, fillers}, 16 lower-case hex chars; document it. Integer paise; Math.floor for percentages. Signatures: buildLadder(input: BuildLadderInput): Ladder; lookup(ladder: Ladder, input: LookupInput): LookupResult; bruteForce(offers: readonly Offer[], fillers: readonly Filler[], input: LookupInput): LookupResult; savingPaise(offer, cartPaise): number; validateSelection(offers: readonly Offer[], input: ValidateInput): ValidateResult.</constraints>
+      <subagents>Haiku: table-driven golden test file from golden.json. Sonnet: fast-check property tests: (a) lookup equals bruteForce, 10,000 runs; (b) every applicable offer passes validateSelection with the same saving; (c) savings never exceed cart or cap; (d) buildLadder deterministic; (e) ladder offers sorted.</subagents>
+      <loop>money.ts and brute.ts first (the reference) > build.ts > lookup.ts > validate.ts > golden tests > property tests > fix. Max 5 iterations. Stop when all tests pass twice in a row with two different seeds.</loop>
+      <acceptance>pnpm --filter @dw/offer-core test: all golden cases pass. Property tests: 0 counterexamples on two seeds. Typecheck passes. Bench: lookup on a 250-offer ladder under 50 microseconds median in Node. grep finds no zod import in src.</acceptance>
+      <docs>Context7: fast-check, vitest.</docs>
+    </task>
+
+    <task name="api-worker" id="T2" model="sonnet" effort="high">
+      <context>Cloudflare Worker with Hono. Supabase is reached through the Repo interface (contracts). Ladders live in KV. Route registry and stubs exist from T0. Payments routes belong to T4.</context>
+      <objective>Implement health, ladder, admin, internal rebuild, checkout validate, events, metrics and the cron reconciler, plus a Supabase-backed Repo and an in-memory Repo for tests.</objective>
+      <scope><in>apps/api/src/routes/{health,ladder,admin,internal,checkout,events,metrics}.ts, apps/api/src/{repo.ts (in-memory fake), supabaseRepo.ts, ladderStore.ts, rebuild.ts, reconciler.ts, log.ts, auth.ts}, apps/api/wrangler.toml (placeholder ids, cron), apps/api/package.json, apps/api/vitest.config.ts, apps/api/test/** except test/payments/**, apps/api/.dev.vars.example, apps/api/README.md</in><out>apps/api/src/index.ts, apps/api/src/env.ts, routes/payments.ts, src/razorpay/**, packages/**, supabase/**, apps/demo/**, tools/**. No deploy, no remote resources.</out></scope>
+      <constraints>
+        Keep the export names and signatures of the T0 stubs (index.ts imports them).
+        rebuild(merchantId): follow the Repo rebuild protocol (pendingOutboxMaxId first), buildLadder(deps.now()), KV put ladder:{id}, markOutboxProcessed. Idempotent. If DEBUG_FAIL_REBUILD is set, throw once (drills).
+        Ladder route: KV get; 404 if missing; ETag and If-None-Match; Cache-Control public, max-age=60; CORS GET. DEBUG_SLOW_LADDER_MS delays (drills).
+        Admin: constant-time bearer compare; after each write also ctx.waitUntil(rebuild) so local dev works without the trigger.
+        Internal rebuild: constant-time compare of x-rebuild-secret.
+        Checkout validate: repo.getAllOffers (never KV) + validateSelection with deps.now().
+        Events: parse body as JSON whatever the Content-Type; 1 KB max; CORS any origin.
+        supabaseRepo: createClient with auth persistSession false; writes through RPC names from contracts.
+        Every handler: errors as ErrorBody, one structured log line, no secrets in logs.
+      </constraints>
+      <dependencies>@dw/contracts, @dw/offer-core (T1, built in parallel on another branch). Tests use the in-memory Repo. If offer-core is not on your branch, write tests against its documented signatures and note in REPORT.md that they run after the T1 merge (T7). Never copy offer-core logic.</dependencies>
+      <subagents>Haiku: .dev.vars.example, wrangler.toml with placeholder ids and the cron, curl examples in apps/api/README.md. Sonnet: integration tests: create offer then ladder version changes; ETag 304; validate below_min and ok; admin without token 401; internal rebuild wrong secret 401; reconciler processes a pending outbox row.</subagents>
+      <loop>repo.ts fake > ladderStore + rebuild > routes one by one with tests > supabaseRepo > tests > fix. Max 6 iterations. Stop when tests pass and wrangler dev serves /healthz.</loop>
+      <acceptance>pnpm --filter @dw/api test passes (excluding test/payments). Typecheck passes. npx wrangler dev starts; curl localhost:8787/healthz ok. In-memory repo seeded with m1: validate {m1, 260000, HDFC_CC, m1_O2} -> valid true, 25000, 235000. No literal secrets (grep rzp_, service_role, eyJ).</acceptance>
+      <docs>Context7: hono, wrangler (KV bindings, cron, local dev, --test-scheduled), @cloudflare/vitest-pool-workers, supabase-js (createClient options, rpc), zod.</docs>
+    </task>
+
+    <task name="supabase-db" id="T3" model="sonnet" effort="medium">
+      <context>Hosted Supabase project from pre-flight. The Worker talks to it only with the service-role key, through tables and RPC functions named in packages/contracts/src/db.ts.</context>
+      <objective>Migrations for all tables, RPC functions, RLS, the pg_net outbox trigger reading app_config, and the golden-merchant seed, applied to the hosted project and verified by a smoke script.</objective>
+      <scope><in>supabase/migrations/0001_tables.sql, 0002_rpc.sql, 0003_rls.sql, 0004_outbox_trigger.sql, supabase/seed.sql (m1 only, razorpay_offer_id NULL), supabase/tests/smoke.mjs, supabase/README.md</in><out>apps/**, packages/**, tools/**. Do not insert real app_config values (T7 does).</out></scope>
+      <constraints>
+        Columns exactly per packages/contracts/src/db.ts (including payments.cart_paise and payments.mode).
+        Every table: RLS enabled, no policies.
+        RPC functions: SECURITY INVOKER, explicit search_path, single transaction each; upsert_offer_with_outbox validates kind, value range (percent 1..100), flat has null max_paise, ends_at > starts_at, paise non-negative; raises on bad input. p_offer keys are snake_case column names.
+        Repo needs: pendingOutboxMaxId and markOutboxProcessed(merchant, upToId) work with plain table queries; no extra RPC required.
+        Trigger: AFTER INSERT ON outbox FOR EACH ROW; reads rebuild_url and rebuild_secret from app_config; if either missing, do nothing; net.http_post with header x-rebuild-secret and body {"merchant_id": ...}. Trigger function SECURITY DEFINER, fixed search_path, owned by postgres.
+        Idempotent migrations where practical. Apply with supabase db push or psql "$SUPABASE_DB_URL" -f each file in order.
+      </constraints>
+      <env>SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_URL. Never write them to files. If they are not exported in your shell, write and locally lint the SQL, then stop and ask the human to export them before applying.</env>
+      <subagents>Haiku: 0001_tables.sql and seed.sql. Sonnet: smoke.mjs with supabase-js and the service role: call each RPC, check an outbox row appears, metrics_for_merchant returns counts, clean up test rows.</subagents>
+      <loop>tables > rpc > rls > trigger > apply > smoke > fix. Max 4 iterations. Stop when smoke passes.</loop>
+      <acceptance>All 4 migrations apply cleanly to the hosted project. node supabase/tests/smoke.mjs exits 0. As the anon key, select from offers returns no rows or a permission error. Inserting an outbox row with app_config empty succeeds.</acceptance>
+      <docs>Context7: Supabase migrations and CLI db push, Postgres SECURITY DEFINER, Supabase RLS, pg_net net.http_post, supabase-js rpc.</docs>
+    </task>
+
+    <task name="razorpay-payments" id="T4" model="sonnet" effort="high">
+      <context>index.ts mounts routes/payments.ts at /v1/payments. Validation comes from offer-core.validateSelection. Data access through the Repo interface. Razorpay test mode.</context>
+      <objective>Implement POST /order and POST /verify per razorpay_contract, both modes, signature verification and idempotency, tested with a mocked Razorpay HTTP layer.</objective>
+      <scope><in>apps/api/src/routes/payments.ts, apps/api/src/razorpay/{client.ts, signature.ts, modes.ts}, apps/api/test/payments/**</in><out>every other file.</out></scope>
+      <constraints>
+        Keep export paymentsRoutes(deps: Deps): Hono&lt;AppEnv&gt;.
+        client.ts: fetch-based, Basic auth, 8 s timeout, one retry on 5xx or network error with jittered backoff, never retry 4xx. Refuse to run unless RAZORPAY_KEY_ID starts with rzp_test_.
+        signature.ts: HMAC-SHA256 hex via crypto.subtle, constant-time compare. Malformed signatures return verified false, not 400.
+        order: validateSelection first (repo.getAllOffers, deps.now()); 409 invalid_offer; 409 amount_too_low below RAZORPAY_MIN_AMOUNT_PAISE; choose mode; insert payments row (status created, cartPaise, expectedSavingPaise, mode); return keyId (never the secret).
+        verify: verify signature; mismatch -> mark failed, 200 {verified:false}; match -> mark verified, insert payment_verified event; idempotent on razorpay_payment_id (getPaymentByOrderId).
+        Never log the secret or signatures.
+      </constraints>
+      <dependencies>@dw/contracts, @dw/offer-core (T1, parallel). Write your own in-memory Repo under test/payments (do not import T2's fake). T2 owns apps/api/package.json: if you need devDependencies (vitest etc.), list them under Requests in REPORT.md; you may add them locally to run tests but say so.</dependencies>
+      <subagents>Haiku: signature.ts tests with an HMAC precomputed via node:crypto. Sonnet: route tests: invalid offer 409; mapped offer -> razorpay_offer with offers array; unmapped -> server_discount with reduced amount; Razorpay 500 then 200 succeeds after one retry; bad signature -> verified false; duplicate verify idempotent.</subagents>
+      <loop>signature.ts + tests > client.ts with mocked fetch > modes.ts > routes > tests > one real test-mode order from test/payments/scripts/try-order if keys are exported > fix. Max 5 iterations.</loop>
+      <acceptance>Payments tests pass. With test keys exported, try-order creates one real test order and prints id and amount. grep finds no secret value or signature strings in source or logs.</acceptance>
+      <env>RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET (test only), optional.</env>
+      <docs>Context7 or Razorpay docs: Orders API (create, offers parameter, receipt rules), Standard Checkout handler fields, payment signature verification.</docs>
+    </task>
+
+    <task name="widget-and-demo" id="T5" model="sonnet" effort="medium">
+      <context>A custom element any store can drop in, plus a static demo store proving the full flow including Razorpay Checkout. Target: mid-range Android phones.</context>
+      <objective>Build dw-offers per widget_contract under 15 KB gzip, and the demo page per demo_contract.</objective>
+      <scope><in>packages/widget/** (src/element.ts, view.tsx, client.ts, events.ts, format.ts, vite.config.ts, scripts/size-check.mjs, test/**), apps/demo/** (public/index.html, demo.js, styles.css, mock-ladder.json)</in><out>packages/offer-core, packages/contracts, apps/api, supabase, tools</out></scope>
+      <constraints>
+        Package name @dw/widget. Shadow DOM, Preact, single-file ES module build.
+        No leaks: remove window listeners, disconnect IntersectionObserver, abort in-flight fetch in disconnectedCallback.
+        Fail closed on error, timeout or disabled ladder. Never throw into the host page.
+        Rupee formatting with en-IN grouping. Accessible buttons, readable contrast, works at 320 px.
+        Demo: test ids from both contracts; loads checkout.js only on Pay; shows order and verify results; no secrets.
+        mock-ladder.json must be a valid Ladder for m1 (build it from golden.json sets.m1 with the real buildLadder once available, else by hand, matching the contract shape).
+      </constraints>
+      <dependencies>@dw/contracts types, @dw/offer-core (T1, parallel on another branch). If offer-core is not on your branch, depend on "@dw/offer-core": "workspace:*" and code against its documented signatures; note in REPORT.md that the build runs after the T1 merge. Never copy offer-core logic.</dependencies>
+      <subagents>Haiku: format.ts plus tests, and size-check.mjs (gzip dist, fail above 15 KB). Haiku: demo HTML and CSS skeleton with all test ids. Sonnet: happy-dom tests: nothing renders on fetch error; nothing after 800 ms timeout; updates on dw:cart; listener removed after element removal; kill switch hides it.</subagents>
+      <loop>client.ts > element lifecycle > view > tests > build > size check > demo > fix. Max 5 iterations.</loop>
+      <acceptance>pnpm --filter @dw/widget test passes. Build then size-check exits 0 and prints size. Demo with ?api=mock at Rs 1,800 shows the "Add a gamcha (Rs 199)" nudge. No zod or supabase import in the widget.</acceptance>
+      <docs>Context7: preact, vite library mode, happy-dom, vitest; MDN for Custom Elements, IntersectionObserver, sendBeacon; Razorpay Standard Checkout options.</docs>
+    </task>
+
+    <task name="tools-seed-load-docs" id="T6" model="haiku" effort="low">
+      <context>Seed data, loaders, load and smoke scripts, docs. Unblocks integration.</context>
+      <objective>Deterministic seed data, a loader that goes through the admin API, k6 and Playwright scripts, and a runbook.</objective>
+      <scope><in>tools/seed/generate.ts, tools/seed/load.ts, tools/seed/out/m1.json (other outputs gitignored), tools/k6/ladder.js, tools/k6/validate.js, tools/smoke/smoke.spec.ts, tools/smoke/memory.spec.ts, tools/package.json, docs/runbook.md, docs/metrics.md, docs/test-payments.md</in><out>packages/**, apps/**, supabase/**. Local targets only.</out></scope>
+      <constraints>
+        Package name @dw/tools.
+        generate.ts: seed 42, faker en_IN, 50 merchants, m1 equals golden.json sets.m1 exactly, m50 has 250 offers. Validate every record with @dw/contracts/schemas (OfferSchema, FillerSchema) before writing. Offer ids are merchantId_code; merchantIds lower-case, max 20 chars.
+        load.ts: DW_API (default http://localhost:8787) and ADMIN_TOKEN from env; 3 retries with backoff; POST offers (NewOffer body), PUT fillers, then POST rebuild per merchant; prints a summary table.
+        k6: 10 VUs for 30 s default; threshold http_req_failed below 1 percent.
+        smoke.spec.ts: demo at Rs 1,800 shows the gamcha nudge; choose HDFC_CC, set cart to Rs 2,600, click Pay, expect an order result (Razorpay modal steps manual, in docs/test-payments.md).
+        memory.spec.ts: mount and remove the widget 100 times, compare CDP heap before and after.
+        docs/test-payments.md links Razorpay's official test card and UPI docs; no card numbers in the repo.
+      </constraints>
+      <loop>generate > validate > loader > k6 > smoke and memory specs > docs > typecheck. Max 3 iterations.</loop>
+      <acceptance>pnpm --filter @dw/tools seed:generate writes 50 files and prints offer counts. Every record passes zod. m1.json equals the golden merchant (diff test). k6 inspect passes if k6 is installed; otherwise noted.</acceptance>
+      <docs>Context7: @faker-js/faker en_IN, k6 thresholds, playwright test and CDP heap.</docs>
+    </task>
+
+    <task name="integrate-deploy-drill" id="T7" model="opus" effort="high">
+      <note>Runs later from the coordinating session after T1 to T6 merge. Merge order: T1, T3, T2, T4, T5, T6. Drills: api_down, slow_api, trigger_rebuild, stale_money, trigger_down, bad_signature, amount_match, kill_switch, memory.</note>
+    </task>
+  </tasks>
+
+  <cut_order_if_late>1. k6 run (keep scripts). 2. metrics endpoint. 3. pg_net trigger (keep cron and admin rebuild). 4. conditional offers in the UI (keep in core). Never drop: property tests, server-side validation, signature verification, widget fail-closed.</cut_order_if_late>
+</plan>
