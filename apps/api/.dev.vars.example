@@ -1,0 +1,10 @@
+# Copy to .dev.vars (gitignored). Test values only.
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=replace-me
+RAZORPAY_KEY_ID=rzp_test_replace_me
+RAZORPAY_KEY_SECRET=replace-me
+ADMIN_TOKEN=replace-with-32-plus-random-chars
+REBUILD_HOOK_SECRET=replace-with-32-plus-random-chars
+# Drills only:
+# DEBUG_SLOW_LADDER_MS=2000
+# DEBUG_FAIL_REBUILD=1

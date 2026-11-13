@@ -1,0 +1,14 @@
+name = "dw-api"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+
+# Placeholder ids: T7 replaces with real ones after checkpoint 2. Local dev uses a simulated KV.
+[[kv_namespaces]]
+binding = "LADDERS"
+id = "00000000000000000000000000000000"
+preview_id = "00000000000000000000000000000000"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Secrets (SUPABASE_*, RAZORPAY_*, ADMIN_TOKEN, REBUILD_HOOK_SECRET): .dev.vars locally, `wrangler secret put` in T7.
