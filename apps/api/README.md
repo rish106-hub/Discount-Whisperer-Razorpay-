@@ -3,8 +3,11 @@
 Hono on Cloudflare Workers. Ladders in KV (`ladder:{merchantId}`), source of truth in Supabase.
 
 ## Local run
+Primary setup is a local Supabase stack (no hosted calls):
 ```bash
-cp .dev.vars.example .dev.vars   # fill test values; never commit .dev.vars
+npx supabase@3.1.0 start         # API at http://127.0.0.1:54321
+npx supabase status -o env       # copy SERVICE_ROLE_KEY into .dev.vars
+cp .dev.vars.example .dev.vars   # SUPABASE_URL defaults to http://127.0.0.1:54321; never commit .dev.vars
 pnpm --filter @dw/api dev        # wrangler dev, http://localhost:8787
 pnpm --filter @dw/api test       # vitest, in-memory Repo + fake KV
 ```

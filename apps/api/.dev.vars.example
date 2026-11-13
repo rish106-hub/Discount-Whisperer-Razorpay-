@@ -1,6 +1,8 @@
 # Copy to .dev.vars (gitignored). Test values only.
-SUPABASE_URL=https://YOUR-PROJECT.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=replace-me
+# Local Supabase (primary dev setup): `npx supabase@3.1.0 start`, then `npx supabase status -o env`
+# and copy SERVICE_ROLE_KEY below. Default API URL:
+SUPABASE_URL=http://127.0.0.1:54321
+SUPABASE_SERVICE_ROLE_KEY=paste-SERVICE_ROLE_KEY-from-supabase-status
 RAZORPAY_KEY_ID=rzp_test_replace_me
 RAZORPAY_KEY_SECRET=replace-me
 ADMIN_TOKEN=replace-with-32-plus-random-chars
