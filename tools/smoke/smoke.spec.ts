@@ -11,12 +11,22 @@ test.describe("demo smoke", () => {
     await expect(page.getByTestId("dw-nudge")).toContainText(/gamcha/i);
   });
 
-  test("HDFC_CC at Rs 2,600 creates an order", async ({ page }) => {
-    await page.goto("/?api=mock");
+  // T7: cart-value is display text, so raise the cart with qty-plus (2 sarees = Rs 3,600, above O2's Rs 2,499 min).
+  // Needs the real local API (not ?api=mock). Razorpay's CDN is blocked so the test makes no external calls.
+  test("HDFC_CC at Rs 3,600 creates a server-validated order", async ({ page }) => {
+    await page.route("https://checkout.razorpay.com/**", (r) => r.abort());
+    await page.goto("/");
+    await page.getByTestId("qty-plus").click();
+    await expect(page.getByTestId("cart-value")).toContainText("3,600");
     await page.getByTestId("pay-method").selectOption("HDFC_CC");
-    // Assumes cart-value is an input. If it is a span, switch this to a click-based setter.
-    await page.getByTestId("cart-value").fill("2600");
+    const order = page.waitForResponse((r) => r.url().includes("/v1/payments/order"));
     await page.getByTestId("pay-button").click();
-    await expect(page.getByTestId("order-result")).toContainText(/order/i, { timeout: 15_000 });
+    const res = await order;
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body.orderId).toMatch(/^order_/);
+    expect(body.amountPaise + body.expectedSavingPaise).toBe(360000); // charge + saving = cart
+    // With the CDN blocked the demo reports checkout.js failing after the order; either message is fine here.
+    await expect(page.getByTestId("order-result")).toContainText(new RegExp(`${body.orderId}|checkout\\.js`), { timeout: 15_000 });
   });
 });
