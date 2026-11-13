@@ -43,7 +43,7 @@ export function memoryRepo(offers: Offer[], now = () => 0): MemoryRepo {
     getPaymentByOrderId: async (id) => payments.find((p) => p.razorpayOrderId === id) ?? null,
     updatePaymentByOrderId: async (id, u: PaymentUpdate) => {
       const p = payments.find((x) => x.razorpayOrderId === id);
-      if (!p) return null;
+      if (!p || !(p.status === "created" || (p.status === "failed" && u.status === "verified"))) return null; // compare-and-set
       p.status = u.status;
       if (u.razorpayPaymentId) p.razorpayPaymentId = u.razorpayPaymentId;
       return p;

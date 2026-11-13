@@ -108,17 +108,21 @@ export function paymentsRoutes(deps: Deps): Hono<AppEnv> {
 
     const ok = await verifySignature(c.env.RAZORPAY_KEY_SECRET, orderId, paymentId, signature);
 
-    if (payment.status === "verified") {
-      // Idempotent: same payment again is still verified; never downgrade a verified order.
-      return c.json<PaymentVerifyResponse>({ verified: ok && payment.razorpayPaymentId === paymentId });
-    }
-    if (!ok) {
-      // A failed row can still become verified later by a good signature.
-      await repo.updatePaymentByOrderId(orderId, { status: "failed" });
-      return c.json<PaymentVerifyResponse>({ verified: false });
-    }
+    // Already settled (verified or failed): answer from the stored row, never rewrite it.
+    const settled = (row: typeof payment) =>
+      c.json<PaymentVerifyResponse>({ verified: ok && row.status === "verified" && row.razorpayPaymentId === paymentId });
+    if (payment.status === "verified") return settled(payment);
 
-    await repo.updatePaymentByOrderId(orderId, { status: "verified", razorpayPaymentId: paymentId });
+    // Compare-and-set in the repo: verified is terminal (failed may still become verified); null means another request settled it first.
+    const updated = ok
+      ? await repo.updatePaymentByOrderId(orderId, { status: "verified", razorpayPaymentId: paymentId })
+      : await repo.updatePaymentByOrderId(orderId, { status: "failed" });
+    if (!updated) {
+      const latest = await repo.getPaymentByOrderId(orderId);
+      return latest ? settled(latest) : fail(c, 404, "not_found");
+    }
+    if (!ok) return c.json<PaymentVerifyResponse>({ verified: false });
+
     try {
       await repo.insertEvent({
         merchantId: payment.merchantId,

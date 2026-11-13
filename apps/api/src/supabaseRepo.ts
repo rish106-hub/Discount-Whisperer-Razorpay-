@@ -131,7 +131,9 @@ export function createSupabaseRepo(env: Env): Repo {
     async updatePaymentByOrderId(id, u: PaymentUpdate) {
       const patch: Row = { status: u.status, updated_at: iso(Date.now()) };
       if (u.razorpayPaymentId !== undefined) patch.razorpay_payment_id = u.razorpayPaymentId;
-      const { data, error } = await db.from(TABLES.payments).update(patch).eq("razorpay_order_id", id).select("*").maybeSingle();
+      // Compare-and-set: verified is terminal; failed may only become verified.
+      const from = u.status === "verified" ? ["created", "failed"] : ["created"];
+      const { data, error } = await db.from(TABLES.payments).update(patch).eq("razorpay_order_id", id).in("status", from).select("*").maybeSingle();
       if (error) fail("payment update", error);
       return data ? paymentFromRow(data as Row) : null;
     },
