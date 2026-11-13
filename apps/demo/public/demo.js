@@ -10,6 +10,7 @@ const API = MOCK ? "" : (apiParam || "").replace(/\/+$/, ""); // default: same o
 
 const $ = (id) => document.getElementById(id);
 const el = document.querySelector("dw-offers");
+if (API) el.setAttribute("api-base", API); // T7 fix: ?api= must reach the widget too (demo_contract)
 const state = { qty: 1, extras: [] };
 
 const rupees = (p) => {
