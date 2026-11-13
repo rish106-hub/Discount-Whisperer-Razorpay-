@@ -10,6 +10,7 @@ import { RAZORPAY_MIN_AMOUNT_PAISE } from "@dw/contracts";
 import { buildLadder, lookup, validateSelection } from "@dw/offer-core";
 import { createApp } from "../src/index";
 import { createMemoryRepo } from "../src/repo";
+import { isPayableOffer, METHOD_NEEDS_RAZORPAY_OFFER } from "../src/razorpay/modes";
 import type { Env } from "../src/env";
 import { fakeKV } from "./helpers";
 
@@ -68,7 +69,12 @@ describe("golden validate cases agree in core, validate route and order route", 
 
       const order = await post("/v1/payments/order", { ...body, offerId: c.input.offerId });
       const json = (await order.json()) as Record<string, unknown>;
-      if (!c.expected.valid) {
+      const offer = set.offers.find((o) => o.id === c.input.offerId);
+      if (c.expected.valid && offer && !isPayableOffer(offer)) {
+        // Money-review #1: method-bound instant discounts only via a mapped Razorpay offer.
+        expect(order.status).toBe(409);
+        expect(json).toMatchObject({ error: "invalid_offer", detail: METHOD_NEEDS_RAZORPAY_OFFER });
+      } else if (!c.expected.valid) {
         expect(order.status).toBe(409);
         expect(json).toMatchObject({ error: "invalid_offer", detail: c.expected.reason });
       } else if (c.expected.chargePaise < RAZORPAY_MIN_AMOUNT_PAISE) {

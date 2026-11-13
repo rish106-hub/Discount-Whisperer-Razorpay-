@@ -11,7 +11,7 @@ import type { ErrorBody, ErrorCode, PaymentOrderResponse, PaymentVerifyResponse 
 import { PaymentOrderRequestSchema, PaymentVerifyRequestSchema } from "@dw/contracts/schemas";
 import type { AppEnv, Deps } from "../env";
 import { assertTestKeys, createOrder, RazorpayError } from "../razorpay/client";
-import { planOrder } from "../razorpay/modes";
+import { isPayableOffer, METHOD_NEEDS_RAZORPAY_OFFER, planOrder } from "../razorpay/modes";
 import { verifySignature } from "../razorpay/signature";
 
 type Ctx = Context<AppEnv>;
@@ -52,6 +52,8 @@ export function paymentsRoutes(deps: Deps): Hono<AppEnv> {
     if (validation.chargePaise < RAZORPAY_MIN_AMOUNT_PAISE) return fail(c, 409, "amount_too_low");
 
     const offer = offerId === null ? null : (offers.find((o) => o.id === offerId) ?? null);
+    // Method-bound instant discounts only through Razorpay, which enforces the method (money-review #1).
+    if (offer && !isPayableOffer(offer)) return fail(c, 409, "invalid_offer", METHOD_NEEDS_RAZORPAY_OFFER);
     const plan = planOrder(offer, validation, cartPaise);
 
     let order;

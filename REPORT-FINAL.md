@@ -8,7 +8,7 @@ Task reports: `reports/T0.md` … `reports/T6.md`.
 |---|---|
 | contracts | golden.json structural check OK (32 cases) |
 | offer-core | 62 pass (golden, 5 fast-check properties on 4+ seeds) |
-| api | 97 pass (routes, payments, golden-three-ways, review regressions) |
+| api | 102 pass (routes, payments, golden-three-ways, review regressions) |
 | widget | 46 pass |
 | tools | 3 pass (m1 seed equals golden) |
 
@@ -41,7 +41,7 @@ Task reports: `reports/T0.md` … `reports/T6.md`.
 ## Money review (independent Opus reviewer)
 | # | Sev | Finding | Status |
 |---|---|---|---|
-| 1 | high | server_discount mode trusts client `method`; a UPI payer can get the HDFC_CC-only discount | **open: needs human decision** |
+| 1 | high | server_discount mode trusts client `method`; a UPI payer can get the HDFC_CC-only discount | fixed (human chose Razorpay-only): method-bound instant discounts need a mapped Razorpay offer, else 409 `method_needs_razorpay_offer`, and rebuild leaves them out of the ladder (`review-method-razorpay-only.test.ts`). Method-bound cashback stays allowed; any later cashback payout must check the real method |
 | 2 | high | verify race could downgrade verified → failed, or let a second payment_id add a second event | fixed: compare-and-set in all repos (`review-verify-race.test.ts`). Allowed transitions: created→verified, created→failed, failed→verified (good signature); verified is terminal |
 | 3 | med | demo picked an offer the server rejects (charge < 100 paise), no fallback | fixed: `pick-offer.js` + one retry with no offer |
 | 4 | med | widget showed every applicable offer as "applied"; only one is ever applied | fixed: best one applied, rest shown as "or" |

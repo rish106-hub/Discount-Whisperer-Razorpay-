@@ -2,6 +2,7 @@
 import { buildLadder } from "@dw/offer-core";
 import type { Deps, Env } from "./env";
 import { getLadder, putLadder } from "./ladderStore";
+import { isPayableOffer } from "./razorpay/modes";
 
 let failedOnce = false; // per isolate
 
@@ -12,7 +13,9 @@ export async function rebuild(env: Env, deps: Deps, merchantId: string): Promise
   }
   const repo = deps.repo(env);
   const maxId = await repo.pendingOutboxMaxId(merchantId); // BEFORE reading offers
-  const [offers, fillers] = await Promise.all([repo.getActiveOffers(merchantId), repo.getFillers(merchantId)]);
+  const [active, fillers] = await Promise.all([repo.getActiveOffers(merchantId), repo.getFillers(merchantId)]);
+  // Never advertise an offer checkout would refuse (method-bound without a Razorpay offer id).
+  const offers = active.filter(isPayableOffer);
   // Preserve a kill switch set directly in KV (drill); nothing in the DB stores it yet.
   const prev = await getLadder(env, merchantId);
   const ladder = buildLadder({ merchantId, offers, fillers, nowMs: deps.now(), disabled: prev?.disabled ?? false });
