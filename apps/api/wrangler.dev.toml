@@ -1,0 +1,16 @@
+# LOCAL-ONLY config (T7). Runs dev/worker.ts: in-memory repo + fake Razorpay, real local KV,
+# demo page served as static assets. Never deploy this file.
+name = "dw-api-dev"
+main = "dev/worker.ts"
+compatibility_date = "2026-06-01"
+
+[[kv_namespaces]]
+binding = "LADDERS"
+id = "00000000000000000000000000000000"
+
+[assets]
+directory = "../demo/public"
+run_worker_first = ["/healthz", "/v1/*", "/internal/*"]
+
+[triggers]
+crons = ["*/5 * * * *"]

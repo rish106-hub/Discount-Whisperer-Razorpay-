@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:local": "pnpm --filter @dw/widget build:demo && wrangler dev -c wrangler.dev.toml --local --port 8787"
   },
   "dependencies": {
     "@dw/contracts": "workspace:*",
