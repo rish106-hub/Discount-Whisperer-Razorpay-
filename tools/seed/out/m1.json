@@ -1,0 +1,75 @@
+{
+  "merchantId": "m1",
+  "offers": [
+    {
+      "id": "m1_O1",
+      "merchantId": "m1",
+      "code": "O1",
+      "maxPaise": 30000,
+      "minOrderPaise": 199900,
+      "method": null,
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "razorpayOfferId": null,
+      "active": true,
+      "updatedAt": 1767225600000,
+      "kind": "pct",
+      "value": 10,
+      "fundedBy": "merchant"
+    },
+    {
+      "id": "m1_O2",
+      "merchantId": "m1",
+      "code": "O2",
+      "maxPaise": null,
+      "minOrderPaise": 249900,
+      "method": "HDFC_CC",
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "razorpayOfferId": null,
+      "active": true,
+      "updatedAt": 1767225600000,
+      "kind": "flat",
+      "value": 25000,
+      "fundedBy": "bank"
+    },
+    {
+      "id": "m1_O3",
+      "merchantId": "m1",
+      "code": "O3",
+      "maxPaise": null,
+      "minOrderPaise": 0,
+      "method": "UPI",
+      "startsAt": 1767225600000,
+      "endsAt": 1893456000000,
+      "razorpayOfferId": null,
+      "active": true,
+      "updatedAt": 1767225600000,
+      "kind": "cashback_pct",
+      "value": 5,
+      "fundedBy": "merchant"
+    }
+  ],
+  "fillers": [
+    {
+      "sku": "gamcha",
+      "name": "Gamcha",
+      "pricePaise": 19900
+    },
+    {
+      "sku": "handloom-stole",
+      "name": "Handloom stole",
+      "pricePaise": 44900
+    },
+    {
+      "sku": "silk-potli-bag",
+      "name": "Silk potli bag",
+      "pricePaise": 69900
+    },
+    {
+      "sku": "tant-saree",
+      "name": "Tant saree",
+      "pricePaise": 129900
+    }
+  ]
+}
